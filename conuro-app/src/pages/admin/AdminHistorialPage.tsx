@@ -147,14 +147,22 @@ export function AdminHistorialPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={busyId !== null}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
+              disabled={busyId !== null}
               onClick={(e) => {
                 e.preventDefault()
                 if (cloneId) void clonar(cloneId)
               }}
             >
-              Clonar
+              {busyId !== null ? (
+                <>
+                  <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                  Clonando…
+                </>
+              ) : (
+                'Clonar'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

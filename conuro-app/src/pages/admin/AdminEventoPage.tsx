@@ -43,6 +43,7 @@ export function AdminEventoPage() {
   const [error, setError] = useState<string | null>(null)
   const [evento, setEvento] = useState<Evento | null>(null)
   const [orgPlan, setOrgPlan] = useState<string>('gratuito')
+  const [crearEventoBusy, setCrearEventoBusy] = useState(false)
 
   const orgId = perfil?.organizacionId
 
@@ -96,43 +97,48 @@ export function AdminEventoPage() {
       setError('Nombre y fecha son obligatorios.')
       return
     }
-    let codigo = generarCodigoAccesoEvento()
-    for (let intento = 0; intento < 8; intento++) {
-      const { data: ins, error: err } = await supabase
-        .from('eventos')
-        .insert({
-          organizacion_id: orgId,
-          nombre,
-          descripcion: null,
-          fecha,
-          estado: 'borrador',
-          codigo_acceso: codigo,
-          puestos_a_premiar: puestos === 2 ? 2 : 3,
-          plantilla_criterios_id: null,
-        })
-        .select(
-          'id, organizacion_id, nombre, descripcion, fecha, estado, codigo_acceso, puestos_a_premiar',
-        )
-        .single()
-      if (!err && ins) {
-        setEvento(ins as Evento)
-        await registrarAuditoria({
-          organizacionId: orgId,
-          eventoId: ins.id,
-          usuarioId: perfil.id,
-          accion: 'evento_creado',
-          detalle: { nombre },
-        })
+    setCrearEventoBusy(true)
+    try {
+      let codigo = generarCodigoAccesoEvento()
+      for (let intento = 0; intento < 8; intento++) {
+        const { data: ins, error: err } = await supabase
+          .from('eventos')
+          .insert({
+            organizacion_id: orgId,
+            nombre,
+            descripcion: null,
+            fecha,
+            estado: 'borrador',
+            codigo_acceso: codigo,
+            puestos_a_premiar: puestos === 2 ? 2 : 3,
+            plantilla_criterios_id: null,
+          })
+          .select(
+            'id, organizacion_id, nombre, descripcion, fecha, estado, codigo_acceso, puestos_a_premiar',
+          )
+          .single()
+        if (!err && ins) {
+          setEvento(ins as Evento)
+          await registrarAuditoria({
+            organizacionId: orgId,
+            eventoId: ins.id,
+            usuarioId: perfil.id,
+            accion: 'evento_creado',
+            detalle: { nombre },
+          })
+          return
+        }
+        if (err?.code === '23505') {
+          codigo = generarCodigoAccesoEvento()
+          continue
+        }
+        setError(err?.message ?? 'No se pudo crear el evento.')
         return
       }
-      if (err?.code === '23505') {
-        codigo = generarCodigoAccesoEvento()
-        continue
-      }
-      setError(err?.message ?? 'No se pudo crear el evento.')
-      return
+      setError('No se pudo generar un código de acceso único.')
+    } finally {
+      setCrearEventoBusy(false)
     }
-    setError('No se pudo generar un código de acceso único.')
   }
 
   if (!perfil) return null
@@ -196,9 +202,11 @@ export function AdminEventoPage() {
           </div>
           <button
             type="submit"
-            className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+            disabled={crearEventoBusy}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
           >
-            Crear borrador
+            {crearEventoBusy ? <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden /> : null}
+            {crearEventoBusy ? 'Creando…' : 'Crear borrador'}
           </button>
         </form>
       </SimplePanel>
@@ -249,6 +257,7 @@ function EventoCabecera({
   setError: (s: string | null) => void
 }) {
   const [edit, setEdit] = useState(false)
+  const [guardando, setGuardando] = useState(false)
 
   async function guardar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -257,14 +266,19 @@ function EventoCabecera({
     const fd = new FormData(e.currentTarget)
     const nombre = String(fd.get('nombre') ?? '').trim()
     const fecha = String(fd.get('fecha') ?? '')
-    const { error: err } = await supabase
-      .from('eventos')
-      .update({ nombre, fecha })
-      .eq('id', evento.id)
-    if (err) setError(err.message)
-    else {
-      setEdit(false)
-      onReload()
+    setGuardando(true)
+    try {
+      const { error: err } = await supabase
+        .from('eventos')
+        .update({ nombre, fecha })
+        .eq('id', evento.id)
+      if (err) setError(err.message)
+      else {
+        setEdit(false)
+        onReload()
+      }
+    } finally {
+      setGuardando(false)
     }
   }
 
@@ -300,10 +314,20 @@ function EventoCabecera({
             className="w-full rounded border px-3 py-2"
           />
           <div className="flex gap-2">
-            <button type="submit" className="rounded bg-slate-900 px-3 py-1.5 text-sm text-white">
-              Guardar
+            <button
+              type="submit"
+              disabled={guardando}
+              className="inline-flex items-center justify-center gap-2 rounded bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-50"
+            >
+              {guardando ? <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden /> : null}
+              {guardando ? 'Guardando…' : 'Guardar'}
             </button>
-            <button type="button" className="text-sm text-slate-600" onClick={() => setEdit(false)}>
+            <button
+              type="button"
+              className="text-sm text-slate-600 disabled:opacity-50"
+              disabled={guardando}
+              onClick={() => setEdit(false)}
+            >
               Cancelar
             </button>
           </div>
@@ -336,6 +360,8 @@ function SeccionCategorias({
   const [rows, setRows] = useState<Categoria[]>([])
   const [nombre, setNombre] = useState('')
   const [categoriaDeleteId, setCategoriaDeleteId] = useState<string | null>(null)
+  const [agregando, setAgregando] = useState(false)
+  const [eliminandoCategoria, setEliminandoCategoria] = useState(false)
   const editable = estado === 'borrador'
 
   const load = useCallback(async () => {
@@ -356,27 +382,37 @@ function SeccionCategorias({
   async function agregar(e: React.FormEvent) {
     e.preventDefault()
     if (!nombre.trim()) return
-    const orden = rows.length ? Math.max(...rows.map((r) => r.orden)) + 1 : 1
-    const { error } = await supabase.from('categorias').insert({
-      evento_id: eventoId,
-      nombre: nombre.trim(),
-      orden,
-    })
-    if (!error) {
-      setNombre('')
-      await load()
-      await onChanged()
+    setAgregando(true)
+    try {
+      const orden = rows.length ? Math.max(...rows.map((r) => r.orden)) + 1 : 1
+      const { error } = await supabase.from('categorias').insert({
+        evento_id: eventoId,
+        nombre: nombre.trim(),
+        orden,
+      })
+      if (!error) {
+        setNombre('')
+        await load()
+        await onChanged()
+      }
+    } finally {
+      setAgregando(false)
     }
   }
 
   async function ejecutarEliminarCategoria() {
     const id = categoriaDeleteId
     if (!id) return
-    const { error } = await supabase.from('categorias').delete().eq('id', id)
-    setCategoriaDeleteId(null)
-    if (!error) {
-      await load()
-      await onChanged()
+    setEliminandoCategoria(true)
+    try {
+      const { error } = await supabase.from('categorias').delete().eq('id', id)
+      if (!error) {
+        await load()
+        await onChanged()
+      }
+    } finally {
+      setCategoriaDeleteId(null)
+      setEliminandoCategoria(false)
     }
   }
 
@@ -407,15 +443,26 @@ function SeccionCategorias({
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             placeholder="Nombre categoría"
-            className="min-w-[200px] flex-1 rounded border px-3 py-2"
+            disabled={agregando}
+            className="min-w-[200px] flex-1 rounded border px-3 py-2 disabled:opacity-50"
           />
-          <button type="submit" className="rounded bg-slate-800 px-3 py-2 text-sm text-white">
-            Añadir
+          <button
+            type="submit"
+            disabled={agregando}
+            className="inline-flex items-center justify-center gap-2 rounded bg-slate-800 px-3 py-2 text-sm text-white disabled:opacity-50"
+          >
+            {agregando ? <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden /> : null}
+            {agregando ? 'Añadiendo…' : 'Añadir'}
           </button>
         </form>
       )}
 
-      <AlertDialog open={categoriaDeleteId !== null} onOpenChange={(o) => !o && setCategoriaDeleteId(null)}>
+      <AlertDialog
+        open={categoriaDeleteId !== null}
+        onOpenChange={(o) => {
+          if (!o && !eliminandoCategoria) setCategoriaDeleteId(null)
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar categoría?</AlertDialogTitle>
@@ -425,15 +472,23 @@ function SeccionCategorias({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={eliminandoCategoria}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={eliminandoCategoria}
               onClick={(e) => {
                 e.preventDefault()
                 void ejecutarEliminarCategoria()
               }}
             >
-              Eliminar
+              {eliminandoCategoria ? (
+                <>
+                  <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                  Eliminando…
+                </>
+              ) : (
+                'Eliminar'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -455,6 +510,10 @@ function SeccionCriterios({
   const [editingId, setEditingId] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
   const [criterioDeleteId, setCriterioDeleteId] = useState<string | null>(null)
+  const [agregandoCriterio, setAgregandoCriterio] = useState(false)
+  const [guardandoCriterio, setGuardandoCriterio] = useState(false)
+  const [desempateBusy, setDesempateBusy] = useState(false)
+  const [eliminandoCriterio, setEliminandoCriterio] = useState(false)
   const editable = estado === 'borrador'
   /** `evento_id` actual; evita aplicar un SELECT de un evento anterior si cambió la prop. */
   const eventoIdRef = useRef(eventoId)
@@ -496,40 +555,50 @@ function SeccionCriterios({
     const max = Number(fd.get('max') ?? 10)
     const des = fd.get('desempate') === 'on'
     if (!nombre) return
-    const { data: maxOrdenRow } = await supabase
-      .from('criterios')
-      .select('orden')
-      .eq('evento_id', eventoId)
-      .order('orden', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    const ordenMax = maxOrdenRow?.orden != null ? Number(maxOrdenRow.orden) : 0
-    const orden = ordenMax + 1
-    if (des) {
-      await supabase.from('criterios').update({ es_criterio_desempate: false }).eq('evento_id', eventoId)
+    setAgregandoCriterio(true)
+    try {
+      const { data: maxOrdenRow } = await supabase
+        .from('criterios')
+        .select('orden')
+        .eq('evento_id', eventoId)
+        .order('orden', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      const ordenMax = maxOrdenRow?.orden != null ? Number(maxOrdenRow.orden) : 0
+      const orden = ordenMax + 1
+      if (des) {
+        await supabase.from('criterios').update({ es_criterio_desempate: false }).eq('evento_id', eventoId)
+      }
+      const { error } = await supabase.from('criterios').insert({
+        evento_id: eventoId,
+        nombre,
+        puntaje_maximo: max,
+        orden,
+        es_criterio_desempate: des,
+      })
+      if (error) {
+        setMsg(error.message)
+        return
+      }
+      e.currentTarget.reset()
+      await load()
+      await onChanged()
+    } finally {
+      setAgregandoCriterio(false)
     }
-    const { error } = await supabase.from('criterios').insert({
-      evento_id: eventoId,
-      nombre,
-      puntaje_maximo: max,
-      orden,
-      es_criterio_desempate: des,
-    })
-    if (error) {
-      setMsg(error.message)
-      return
-    }
-    e.currentTarget.reset()
-    await load()
-    await onChanged()
   }
 
   async function marcarDesempate(id: string) {
     setMsg(null)
-    await supabase.from('criterios').update({ es_criterio_desempate: false }).eq('evento_id', eventoId)
-    await supabase.from('criterios').update({ es_criterio_desempate: true }).eq('id', id)
-    await load()
-    await onChanged()
+    setDesempateBusy(true)
+    try {
+      await supabase.from('criterios').update({ es_criterio_desempate: false }).eq('evento_id', eventoId)
+      await supabase.from('criterios').update({ es_criterio_desempate: true }).eq('id', id)
+      await load()
+      await onChanged()
+    } finally {
+      setDesempateBusy(false)
+    }
   }
 
   async function guardarEdicion(e: React.FormEvent<HTMLFormElement>) {
@@ -549,24 +618,29 @@ function SeccionCriterios({
       setMsg('El puntaje máximo debe ser un número ≥ 0.')
       return
     }
-    if (des) {
-      await supabase.from('criterios').update({ es_criterio_desempate: false }).eq('evento_id', eventoId)
+    setGuardandoCriterio(true)
+    try {
+      if (des) {
+        await supabase.from('criterios').update({ es_criterio_desempate: false }).eq('evento_id', eventoId)
+      }
+      const { error } = await supabase
+        .from('criterios')
+        .update({
+          nombre,
+          puntaje_maximo: max,
+          es_criterio_desempate: des,
+        })
+        .eq('id', id)
+      if (error) {
+        setMsg(error.message)
+        return
+      }
+      setEditingId(null)
+      await load()
+      await onChanged()
+    } finally {
+      setGuardandoCriterio(false)
     }
-    const { error } = await supabase
-      .from('criterios')
-      .update({
-        nombre,
-        puntaje_maximo: max,
-        es_criterio_desempate: des,
-      })
-      .eq('id', id)
-    if (error) {
-      setMsg(error.message)
-      return
-    }
-    setEditingId(null)
-    await load()
-    await onChanged()
   }
 
   function solicitarEliminarCriterio(id: string) {
@@ -595,15 +669,20 @@ function SeccionCriterios({
   async function ejecutarEliminarCriterio() {
     const id = criterioDeleteId
     if (!id) return
-    const { error } = await supabase.from('criterios').delete().eq('id', id)
-    setCriterioDeleteId(null)
-    if (error) {
-      setMsg(error.message)
-      return
+    setEliminandoCriterio(true)
+    try {
+      const { error } = await supabase.from('criterios').delete().eq('id', id)
+      if (error) {
+        setMsg(error.message)
+        return
+      }
+      if (editingId === id) setEditingId(null)
+      await load()
+      await onChanged()
+    } finally {
+      setCriterioDeleteId(null)
+      setEliminandoCriterio(false)
     }
-    if (editingId === id) setEditingId(null)
-    await load()
-    await onChanged()
   }
 
   return (
@@ -623,7 +702,8 @@ function SeccionCriterios({
                   name="nombre"
                   defaultValue={r.nombre}
                   required
-                  className="rounded border px-3 py-2 sm:col-span-2"
+                  disabled={guardandoCriterio}
+                  className="rounded border px-3 py-2 sm:col-span-2 disabled:opacity-50"
                 />
                 <input
                   name="max"
@@ -631,19 +711,31 @@ function SeccionCriterios({
                   min={0}
                   step={0.5}
                   defaultValue={Number(r.puntaje_maximo)}
-                  className="rounded border px-3 py-2"
+                  disabled={guardandoCriterio}
+                  className="rounded border px-3 py-2 disabled:opacity-50"
                 />
                 <label className="flex items-center gap-2 text-sm sm:col-span-2">
-                  <input name="desempate" type="checkbox" defaultChecked={r.es_criterio_desempate} />
+                  <input
+                    name="desempate"
+                    type="checkbox"
+                    defaultChecked={r.es_criterio_desempate}
+                    disabled={guardandoCriterio}
+                  />
                   Criterio de desempate (desmarca los demás al guardar)
                 </label>
                 <div className="flex flex-wrap gap-2 sm:col-span-2">
-                  <button type="submit" className="rounded bg-slate-800 px-3 py-1.5 text-sm text-white">
-                    Guardar
+                  <button
+                    type="submit"
+                    disabled={guardandoCriterio}
+                    className="inline-flex items-center justify-center gap-2 rounded bg-slate-800 px-3 py-1.5 text-sm text-white disabled:opacity-50"
+                  >
+                    {guardandoCriterio ? <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden /> : null}
+                    {guardandoCriterio ? 'Guardando…' : 'Guardar'}
                   </button>
                   <button
                     type="button"
-                    className="text-sm text-slate-600 underline"
+                    className="text-sm text-slate-600 underline disabled:opacity-50"
+                    disabled={guardandoCriterio}
                     onClick={() => {
                       setEditingId(null)
                       setMsg(null)
@@ -685,9 +777,13 @@ function SeccionCriterios({
                     {!r.es_criterio_desempate && (
                       <button
                         type="button"
-                        className="text-slate-600 underline"
+                        disabled={desempateBusy}
+                        className="inline-flex items-center gap-1 text-slate-600 underline disabled:opacity-50"
                         onClick={() => void marcarDesempate(r.id)}
                       >
+                        {desempateBusy ? (
+                          <Loader2 className="size-3.5 shrink-0 animate-spin" aria-hidden />
+                        ) : null}
                         Usar como desempate
                       </button>
                     )}
@@ -700,26 +796,43 @@ function SeccionCriterios({
       </ul>
       {editable && (
         <form className="mt-4 grid gap-2 sm:grid-cols-2" onSubmit={(e) => void agregar(e)}>
-          <input name="nombre" placeholder="Nombre" required className="rounded border px-3 py-2" />
+          <input
+            name="nombre"
+            placeholder="Nombre"
+            required
+            disabled={agregandoCriterio}
+            className="rounded border px-3 py-2 disabled:opacity-50"
+          />
           <input
             name="max"
             type="number"
             min={0}
             step={0.5}
             defaultValue={10}
-            className="rounded border px-3 py-2"
+            disabled={agregandoCriterio}
+            className="rounded border px-3 py-2 disabled:opacity-50"
           />
           <label className="flex items-center gap-2 text-sm sm:col-span-2">
-            <input name="desempate" type="checkbox" />
+            <input name="desempate" type="checkbox" disabled={agregandoCriterio} />
             Marcar como criterio de desempate (desmarca otros)
           </label>
-          <button type="submit" className="rounded bg-slate-800 px-3 py-2 text-sm text-white sm:col-span-2">
-            Añadir criterio
+          <button
+            type="submit"
+            disabled={agregandoCriterio}
+            className="inline-flex items-center justify-center gap-2 rounded bg-slate-800 px-3 py-2 text-sm text-white disabled:opacity-50 sm:col-span-2"
+          >
+            {agregandoCriterio ? <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden /> : null}
+            {agregandoCriterio ? 'Añadiendo…' : 'Añadir criterio'}
           </button>
         </form>
       )}
 
-      <AlertDialog open={criterioDeleteId !== null} onOpenChange={(o) => !o && setCriterioDeleteId(null)}>
+      <AlertDialog
+        open={criterioDeleteId !== null}
+        onOpenChange={(o) => {
+          if (!o && !eliminandoCriterio) setCriterioDeleteId(null)
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar este criterio?</AlertDialogTitle>
@@ -728,15 +841,23 @@ function SeccionCriterios({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={eliminandoCriterio}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={eliminandoCriterio}
               onClick={(e) => {
                 e.preventDefault()
                 void ejecutarEliminarCriterio()
               }}
             >
-              Eliminar
+              {eliminandoCriterio ? (
+                <>
+                  <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                  Eliminando…
+                </>
+              ) : (
+                'Eliminar'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -771,6 +892,8 @@ function SeccionParticipantes({
   const [parts, setParts] = useState<Participante[]>([])
   const [nombre, setNombre] = useState('')
   const [participanteDeleteId, setParticipanteDeleteId] = useState<string | null>(null)
+  const [agregandoParticipante, setAgregandoParticipante] = useState(false)
+  const [eliminandoParticipante, setEliminandoParticipante] = useState(false)
   const editable = estado === 'borrador' || estado === 'abierto'
 
   const loadCats = useCallback(async () => {
@@ -809,27 +932,37 @@ function SeccionParticipantes({
   async function agregar(e: React.FormEvent) {
     e.preventDefault()
     if (!catId || !nombre.trim()) return
-    const codigo = await siguienteCodigoParticipante(catId)
-    const { error } = await supabase.from('participantes').insert({
-      categoria_id: catId,
-      nombre_completo: nombre.trim(),
-      codigo,
-    })
-    if (!error) {
-      setNombre('')
-      await loadParts()
-      onChanged()
+    setAgregandoParticipante(true)
+    try {
+      const codigo = await siguienteCodigoParticipante(catId)
+      const { error } = await supabase.from('participantes').insert({
+        categoria_id: catId,
+        nombre_completo: nombre.trim(),
+        codigo,
+      })
+      if (!error) {
+        setNombre('')
+        await loadParts()
+        onChanged()
+      }
+    } finally {
+      setAgregandoParticipante(false)
     }
   }
 
   async function ejecutarEliminarParticipante() {
     const id = participanteDeleteId
     if (!id) return
-    const { error } = await supabase.from('participantes').delete().eq('id', id)
-    setParticipanteDeleteId(null)
-    if (!error) {
-      await loadParts()
-      onChanged()
+    setEliminandoParticipante(true)
+    try {
+      const { error } = await supabase.from('participantes').delete().eq('id', id)
+      if (!error) {
+        await loadParts()
+        onChanged()
+      }
+    } finally {
+      setParticipanteDeleteId(null)
+      setEliminandoParticipante(false)
     }
   }
 
@@ -841,7 +974,8 @@ function SeccionParticipantes({
         <select
           value={catId}
           onChange={(e) => setCatId(e.target.value)}
-          className="mt-1 w-full max-w-md rounded border px-3 py-2"
+          disabled={agregandoParticipante}
+          className="mt-1 w-full max-w-md rounded border px-3 py-2 disabled:opacity-50"
         >
           {cats.map((c) => (
             <option key={c.id} value={c.id}>
@@ -870,17 +1004,25 @@ function SeccionParticipantes({
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             placeholder="Nombre completo"
-            className="min-w-[200px] flex-1 rounded border px-3 py-2"
+            disabled={agregandoParticipante}
+            className="min-w-[200px] flex-1 rounded border px-3 py-2 disabled:opacity-50"
           />
-          <button type="submit" className="rounded bg-slate-800 px-3 py-2 text-sm text-white">
-            Añadir
+          <button
+            type="submit"
+            disabled={agregandoParticipante}
+            className="inline-flex items-center justify-center gap-2 rounded bg-slate-800 px-3 py-2 text-sm text-white disabled:opacity-50"
+          >
+            {agregandoParticipante ? <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden /> : null}
+            {agregandoParticipante ? 'Añadiendo…' : 'Añadir'}
           </button>
         </form>
       )}
 
       <AlertDialog
         open={participanteDeleteId !== null}
-        onOpenChange={(o) => !o && setParticipanteDeleteId(null)}
+        onOpenChange={(o) => {
+          if (!o && !eliminandoParticipante) setParticipanteDeleteId(null)
+        }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -891,15 +1033,23 @@ function SeccionParticipantes({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={eliminandoParticipante}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={eliminandoParticipante}
               onClick={(e) => {
                 e.preventDefault()
                 void ejecutarEliminarParticipante()
               }}
             >
-              Quitar
+              {eliminandoParticipante ? (
+                <>
+                  <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                  Quitando…
+                </>
+              ) : (
+                'Quitar'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -924,6 +1074,8 @@ function SeccionJurados({
   const [rows, setRows] = useState<Jurado[]>([])
   const [nombre, setNombre] = useState('')
   const [juradoDeleteId, setJuradoDeleteId] = useState<string | null>(null)
+  const [agregandoJurado, setAgregandoJurado] = useState(false)
+  const [eliminandoJurado, setEliminandoJurado] = useState(false)
   const editable = estado === 'borrador' || estado === 'abierto'
 
   const load = useCallback(async () => {
@@ -949,27 +1101,37 @@ function SeccionJurados({
       return
     }
     setError(null)
-    const orden = rows.length ? Math.max(...rows.map((r) => r.orden)) + 1 : 1
-    const { error } = await supabase.from('jurados').insert({
-      evento_id: eventoId,
-      nombre_completo: nombre.trim(),
-      orden,
-    })
-    if (!error) {
-      setNombre('')
-      await load()
-      onChanged()
+    setAgregandoJurado(true)
+    try {
+      const orden = rows.length ? Math.max(...rows.map((r) => r.orden)) + 1 : 1
+      const { error } = await supabase.from('jurados').insert({
+        evento_id: eventoId,
+        nombre_completo: nombre.trim(),
+        orden,
+      })
+      if (!error) {
+        setNombre('')
+        await load()
+        onChanged()
+      }
+    } finally {
+      setAgregandoJurado(false)
     }
   }
 
   async function ejecutarEliminarJurado() {
     const id = juradoDeleteId
     if (!id) return
-    const { error } = await supabase.from('jurados').delete().eq('id', id)
-    setJuradoDeleteId(null)
-    if (!error) {
-      await load()
-      onChanged()
+    setEliminandoJurado(true)
+    try {
+      const { error } = await supabase.from('jurados').delete().eq('id', id)
+      if (!error) {
+        await load()
+        onChanged()
+      }
+    } finally {
+      setJuradoDeleteId(null)
+      setEliminandoJurado(false)
     }
   }
 
@@ -994,10 +1156,16 @@ function SeccionJurados({
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             placeholder="Nombre completo del jurado"
-            className="min-w-[200px] flex-1 rounded border px-3 py-2"
+            disabled={agregandoJurado}
+            className="min-w-[200px] flex-1 rounded border px-3 py-2 disabled:opacity-50"
           />
-          <button type="submit" className="rounded bg-slate-800 px-3 py-2 text-sm text-white">
-            Añadir
+          <button
+            type="submit"
+            disabled={agregandoJurado}
+            className="inline-flex items-center justify-center gap-2 rounded bg-slate-800 px-3 py-2 text-sm text-white disabled:opacity-50"
+          >
+            {agregandoJurado ? <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden /> : null}
+            {agregandoJurado ? 'Añadiendo…' : 'Añadir'}
           </button>
         </form>
       )}
@@ -1005,7 +1173,12 @@ function SeccionJurados({
         <p className="mt-3 text-xs text-amber-800">Plan gratuito: máximo 3 jurados.</p>
       )}
 
-      <AlertDialog open={juradoDeleteId !== null} onOpenChange={(o) => !o && setJuradoDeleteId(null)}>
+      <AlertDialog
+        open={juradoDeleteId !== null}
+        onOpenChange={(o) => {
+          if (!o && !eliminandoJurado) setJuradoDeleteId(null)
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar jurado?</AlertDialogTitle>
@@ -1015,15 +1188,23 @@ function SeccionJurados({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={eliminandoJurado}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={eliminandoJurado}
               onClick={(e) => {
                 e.preventDefault()
                 void ejecutarEliminarJurado()
               }}
             >
-              Eliminar
+              {eliminandoJurado ? (
+                <>
+                  <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                  Eliminando…
+                </>
+              ) : (
+                'Eliminar'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

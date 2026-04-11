@@ -29,6 +29,7 @@ export function SuperOrganizacionesPage() {
   const [nombre, setNombre] = useState('')
   const [slug, setSlug] = useState('')
   const [busy, setBusy] = useState(false)
+  const [mutatingOrgId, setMutatingOrgId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setError(null)
@@ -79,17 +80,27 @@ export function SuperOrganizacionesPage() {
   }
 
   async function guardarPlan(id: string, plan: string) {
+    setMutatingOrgId(id)
     setError(null)
-    const { error: e } = await supabase.from('organizaciones').update({ plan }).eq('id', id)
-    if (e) setError(e.message)
-    else await load()
+    try {
+      const { error: e } = await supabase.from('organizaciones').update({ plan }).eq('id', id)
+      if (e) setError(e.message)
+      else await load()
+    } finally {
+      setMutatingOrgId(null)
+    }
   }
 
   async function toggleActivo(id: string, activo: boolean) {
+    setMutatingOrgId(id)
     setError(null)
-    const { error: e } = await supabase.from('organizaciones').update({ activo: !activo }).eq('id', id)
-    if (e) setError(e.message)
-    else await load()
+    try {
+      const { error: e } = await supabase.from('organizaciones').update({ activo: !activo }).eq('id', id)
+      if (e) setError(e.message)
+      else await load()
+    } finally {
+      setMutatingOrgId(null)
+    }
   }
 
   return (
@@ -149,10 +160,14 @@ export function SuperOrganizacionesPage() {
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                {mutatingOrgId === o.id ? (
+                  <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" aria-hidden />
+                ) : null}
                 <select
                   value={o.plan}
+                  disabled={mutatingOrgId === o.id}
                   onChange={(e) => void guardarPlan(o.id, e.target.value)}
-                  className="rounded-md border border-input bg-background px-2 py-1.5 text-sm shadow-sm"
+                  className="rounded-md border border-input bg-background px-2 py-1.5 text-sm shadow-sm disabled:opacity-50"
                 >
                   {PLANES.map((p) => (
                     <option key={p.value} value={p.value}>
@@ -167,6 +182,7 @@ export function SuperOrganizacionesPage() {
                   type="button"
                   variant="outline"
                   size="sm"
+                  disabled={mutatingOrgId === o.id}
                   onClick={() => void toggleActivo(o.id, o.activo)}
                 >
                   {o.activo ? 'Desactivar' : 'Activar'}
