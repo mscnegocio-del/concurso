@@ -1,8 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import { useParams } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { playRevealChime } from '@/lib/sound'
 import { supabase } from '@/lib/supabase'
+import { cn } from '@/lib/utils'
 
 type EventoHeader = {
   id: string
@@ -65,6 +74,71 @@ function filaPodio(filas: PodioFila[], lugar: number): PodioFila | undefined {
 
 const POLL_MS = 5000
 
+const PUBLICO_ESCALA_MIN = 0.22
+
+/**
+ * Escala todo el lienzo al viewport (TV/proyector) sin scroll ni interacción.
+ */
+function PublicoEscaladoViewport({
+  children,
+  layoutRevision = 0,
+}: {
+  children: ReactNode
+  /** Cambia cuando se actualizan datos (poll); vuelve a medir y escalar. */
+  layoutRevision?: number
+}) {
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const scaleBoxRef = useRef<HTMLDivElement>(null)
+  const [scale, setScale] = useState(1)
+
+  const recompute = useCallback(() => {
+    const vp = viewportRef.current
+    const box = scaleBoxRef.current
+    if (!vp || !box) return
+    const pad = 12
+    const rw = Math.max(1, vp.clientWidth - pad * 2)
+    const rh = Math.max(1, vp.clientHeight - pad * 2)
+    const cw = Math.max(1, box.scrollWidth)
+    const ch = Math.max(1, box.scrollHeight)
+    const s = Math.max(PUBLICO_ESCALA_MIN, Math.min(rw / cw, rh / ch, 1))
+    setScale(s)
+  }, [])
+
+  useLayoutEffect(() => {
+    recompute()
+    const roVp = new ResizeObserver(recompute)
+    const roBox = new ResizeObserver(recompute)
+    if (viewportRef.current) roVp.observe(viewportRef.current)
+    if (scaleBoxRef.current) roBox.observe(scaleBoxRef.current)
+    window.addEventListener('resize', recompute)
+    window.addEventListener('orientationchange', recompute)
+    return () => {
+      roVp.disconnect()
+      roBox.disconnect()
+      window.removeEventListener('resize', recompute)
+      window.removeEventListener('orientationchange', recompute)
+    }
+  }, [recompute, layoutRevision])
+
+  return (
+    <div
+      ref={viewportRef}
+      className="box-border flex min-h-0 w-full min-w-0 flex-1 flex-col items-center justify-center overflow-hidden overscroll-none p-2 sm:p-3"
+    >
+      <div
+        ref={scaleBoxRef}
+        className="will-change-transform"
+        style={{
+          transform: `scale(${scale})`,
+          transformOrigin: 'center center',
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  )
+}
+
 export function PublicoEventoPage() {
   const { eventoSlug } = useParams<{ eventoSlug: string }>()
   const codigo = (eventoSlug ?? '').trim()
@@ -123,6 +197,20 @@ export function PublicoEventoPage() {
   }, [codigo])
 
   useEffect(() => {
+    if (!header) return
+    const html = document.documentElement
+    const body = document.body
+    const prevHtml = html.style.overflow
+    const prevBody = body.style.overflow
+    html.style.overflow = 'hidden'
+    body.style.overflow = 'hidden'
+    return () => {
+      html.style.overflow = prevHtml
+      body.style.overflow = prevBody
+    }
+  }, [header])
+
+  useEffect(() => {
     queueMicrotask(() => {
       void cargar()
     })
@@ -170,9 +258,17 @@ export function PublicoEventoPage() {
   const finalizado = header.estado === 'publicado'
 
   return (
-    <main className="min-h-dvh bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
-      <div className="publico-display mx-auto flex min-h-dvh max-w-7xl flex-col px-6 py-10 md:px-12 md:py-14">
-        <header className="flex flex-col items-center gap-6 text-center md:flex-row md:items-start md:justify-between md:text-left">
+    <main className="fixed inset-0 z-10 flex h-[100dvh] max-h-[100dvh] w-screen flex-col overflow-hidden overscroll-none bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
+      <PublicoEscaladoViewport
+        layoutRevision={
+          (lastSyncedAt?.getTime() ?? 0) +
+          progreso.length * 17 +
+          podio.length * 31 +
+          publicados.length * 13
+        }
+      >
+        <div className="publico-display mx-auto flex w-full max-w-7xl min-w-0 flex-col px-4 py-4 sm:px-8 sm:py-6 md:px-10 md:py-8">
+          <header className="flex flex-shrink-0 flex-col items-center gap-4 text-center sm:gap-5 md:flex-row md:items-start md:justify-between md:gap-6 md:text-left">
           <div className="flex flex-col items-center gap-4 md:flex-row md:items-center">
             {header.logo_url ? (
               <img
@@ -219,10 +315,10 @@ export function PublicoEventoPage() {
             </div>
           )}
           </div>
-        </header>
+          </header>
 
-        <section className="mt-12 grid gap-10 lg:grid-cols-2 lg:gap-14">
-          <div>
+          <section className="mt-6 grid grid-cols-1 gap-6 lg:mt-8 lg:grid-cols-2 lg:gap-8 xl:gap-10">
+            <div className="min-w-0">
             <h2 className="text-xl font-semibold text-slate-200 md:text-2xl">En curso</h2>
             <p className="mt-1 text-sm text-slate-500">Progreso de calificaciones (sin mostrar notas hasta la publicación).</p>
             <div className="mt-6 h-5 w-full overflow-hidden rounded-full bg-slate-800">
@@ -233,7 +329,7 @@ export function PublicoEventoPage() {
             </div>
             <p className="mt-3 text-center text-2xl font-semibold text-slate-200 md:text-3xl">{pctGlobal}%</p>
 
-            <ul className="mt-8 space-y-3">
+            <ul className="mt-4 space-y-2 sm:mt-6 sm:space-y-3">
               {progreso.map((r) => {
                 const esp = Number(r.calificaciones_esperadas)
                 const reg = Number(r.calificaciones_registradas)
@@ -253,9 +349,9 @@ export function PublicoEventoPage() {
                 )
               })}
             </ul>
-          </div>
+            </div>
 
-          <div>
+            <div className="min-w-0">
             <h2 className="text-xl font-semibold text-slate-200 md:text-2xl">Última revelación</h2>
             {nombreUltimaCategoria && (
               <p className="mt-2 text-lg font-medium text-indigo-200 md:text-xl">{nombreUltimaCategoria}</p>
@@ -282,10 +378,67 @@ export function PublicoEventoPage() {
                 <PodioSlot lugar={3} fila={filaPodio(podio, 3)} puestos={puestosPodio} />
               </div>
             )}
-          </div>
-        </section>
-      </div>
+            </div>
+          </section>
+        </div>
+      </PublicoEscaladoViewport>
     </main>
+  )
+}
+
+/** Nombre en podio para TV/proyector: sin hover; si no cabe, desplazamiento vertical automático con pausas. */
+function PodioNombreProyector({ nombre, destacado }: { nombre: string; destacado: boolean }) {
+  const outerRef = useRef<HTMLDivElement>(null)
+  const innerRef = useRef<HTMLDivElement>(null)
+  const [excesoPx, setExcesoPx] = useState(0)
+
+  const trackH = destacado
+    ? 'h-[5.5rem] md:h-[6.75rem] lg:h-28'
+    : 'h-[4rem] md:h-[5rem] lg:h-24'
+
+  useLayoutEffect(() => {
+    const outer = outerRef.current
+    const inner = innerRef.current
+    if (!outer || !inner) return
+    const medir = () => {
+      const d = inner.scrollHeight - outer.clientHeight
+      setExcesoPx(d > 2 ? d : 0)
+    }
+    medir()
+    const ro = new ResizeObserver(medir)
+    ro.observe(outer)
+    ro.observe(inner)
+    return () => ro.disconnect()
+  }, [nombre, destacado])
+
+  const necesitaScroll = excesoPx > 0
+
+  return (
+    <div
+      ref={outerRef}
+      className={cn(
+        'relative mt-2 w-full max-w-[11rem] overflow-hidden md:max-w-[13rem] lg:max-w-[15rem]',
+        trackH,
+      )}
+      aria-label={`Ganador: ${nombre}`}
+    >
+      <div
+        ref={innerRef}
+        className={cn(
+          'px-0.5 text-center text-sm font-semibold leading-tight text-pretty break-words text-white md:text-base lg:text-lg',
+          necesitaScroll
+            ? 'publico-podium-name-scroll absolute inset-x-0 top-0'
+            : 'absolute inset-x-0 top-1/2 -translate-y-1/2',
+        )}
+        style={
+          necesitaScroll
+            ? ({ '--publico-podium-dy': `-${excesoPx}px` } as React.CSSProperties)
+            : undefined
+        }
+      >
+        {nombre}
+      </div>
+    </div>
   )
 }
 
@@ -313,8 +466,10 @@ function PodioSlot({
         <span className="text-4xl font-black text-amber-300 md:text-5xl">{lugar}°</span>
         {fila ? (
           <>
-            <p className="mt-4 text-lg font-semibold leading-snug md:text-2xl">{fila.nombre_completo}</p>
-            <p className="mt-2 font-mono text-sm text-slate-500">{fila.codigo}</p>
+            <p className="mt-3 rounded-md bg-slate-950/50 px-2.5 py-1 font-mono text-sm font-bold tracking-wide text-amber-200 md:mt-4 md:text-base">
+              N.º {fila.codigo}
+            </p>
+            <PodioNombreProyector nombre={fila.nombre_completo} destacado={!!alto} />
             <p className="mt-3 text-3xl font-bold text-white md:text-4xl">{fila.puntaje_final}</p>
             <p className="text-xs uppercase tracking-wider text-slate-500">puntos</p>
           </>

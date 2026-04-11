@@ -150,3 +150,30 @@
     line-height: 1.45;
   }
 }
+
+/* Podio: TV/proyector sin mouse — el nombre largo sube/baja solo con pausas al inicio y al final */
+.publico-podium-name-scroll {
+  animation: publico-podium-name-cycle 18s ease-in-out infinite;
+}
+
+@keyframes publico-podium-name-cycle {
+  0%,
+  15% {
+    transform: translateY(0);
+  }
+  45%,
+  55% {
+    transform: translateY(var(--publico-podium-dy, 0px));
+  }
+  85%,
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .publico-podium-name-scroll {
+    animation: none;
+    transform: translateY(0);
+  }
+}
