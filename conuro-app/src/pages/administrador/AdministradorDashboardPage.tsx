@@ -93,22 +93,11 @@ export function AdministradorDashboardPage() {
     else setHistorial((data ?? []) as HistorialFila[])
   }, [evento?.id])
 
-  const cargarRanking = useCallback(async () => {
-    if (!evento?.id || !catPreview) {
-      setRanking([])
-      return
-    }
-    setError(null)
-    const { data, error: e } = await supabase.rpc('coordinador_ranking_categoria', {
-      p_evento_id: evento.id,
-      p_categoria_id: catPreview,
-    })
-    if (e) {
-      setError(e.message)
-      return
-    }
-    setRanking((data ?? []) as RankFila[])
-  }, [evento?.id, catPreview])
+  /** Categoría del desplegable: elección explícita o primera fila de progreso (evita catPreview '' sin RPC). */
+  const categoriaSeleccionada = useMemo(() => {
+    if (catPreview && progreso.some((p) => p.categoria_id === catPreview)) return catPreview
+    return progreso[0]?.categoria_id ?? ''
+  }, [catPreview, progreso])
 
   useEffect(() => {
     setEventoInicializado(false)
@@ -129,10 +118,30 @@ export function AdministradorDashboardPage() {
   }, [evento?.id, cargarProgreso, cargarHistorial])
 
   useEffect(() => {
-    queueMicrotask(() => {
-      void cargarRanking()
-    })
-  }, [cargarRanking])
+    const eid = evento?.id
+    const cid = categoriaSeleccionada
+    if (!eid || !cid) {
+      setRanking([])
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      setError(null)
+      const { data, error: e } = await supabase.rpc('coordinador_ranking_categoria', {
+        p_evento_id: eid,
+        p_categoria_id: cid,
+      })
+      if (cancelled) return
+      if (e) {
+        setError(e.message)
+        return
+      }
+      setRanking((data ?? []) as RankFila[])
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [evento?.id, categoriaSeleccionada, progreso])
 
   useEffect(() => {
     if (!evento?.id) return
@@ -173,19 +182,13 @@ export function AdministradorDashboardPage() {
     setCatPreview('')
   }, [evento?.id])
 
-  useEffect(() => {
-    if (progreso.length > 0 && !catPreview) {
-      setCatPreview(progreso[0].categoria_id)
-    }
-  }, [progreso, catPreview])
-
   const publicadosSet = useMemo(
     () => new Set(historial.map((h) => h.categoria_id)),
     [historial],
   )
 
   async function publicarCategoria() {
-    if (!perfil || !evento || !catPreview) return
+    if (!perfil || !evento || !categoriaSeleccionada) return
     if (evento.estado === 'borrador') {
       setError('El evento debe estar activo (no en borrador) para publicar.')
       return
@@ -196,7 +199,7 @@ export function AdministradorDashboardPage() {
       const { error: e } = await supabase.from('resultados_publicados').upsert(
         {
           evento_id: evento.id,
-          categoria_id: catPreview,
+          categoria_id: categoriaSeleccionada,
           publicado_por: perfil.id,
           publicado_at: new Date().toISOString(),
         },
@@ -211,7 +214,7 @@ export function AdministradorDashboardPage() {
         eventoId: evento.id,
         usuarioId: perfil.id,
         accion: 'resultados_publicados',
-        detalle: { categoria_id: catPreview },
+        detalle: { categoria_id: categoriaSeleccionada },
       })
       await cargarHistorial()
       await cargarProgreso()
@@ -327,7 +330,7 @@ export function AdministradorDashboardPage() {
         <div className="mt-4">
           <label className="text-sm text-slate-600">Categoría</label>
           <select
-            value={catPreview}
+            value={categoriaSeleccionada}
             onChange={(e) => setCatPreview(e.target.value)}
             className="mt-1 w-full max-w-md rounded border border-slate-200 px-3 py-2 text-sm"
           >
@@ -346,7 +349,7 @@ export function AdministradorDashboardPage() {
             </li>
           ))}
         </ol>
-        {ranking.length === 0 && catPreview && (
+        {ranking.length === 0 && categoriaSeleccionada && (
           <p className="mt-2 text-sm text-slate-500">Sin datos de ranking aún.</p>
         )}
       </SimplePanel>
@@ -356,13 +359,13 @@ export function AdministradorDashboardPage() {
         <p className="mt-1 text-sm text-slate-600">
           Publica la categoría seleccionada arriba para mostrar el podio en la pantalla pública.
         </p>
-        {catPreview && publicadosSet.has(catPreview) && (
+        {categoriaSeleccionada && publicadosSet.has(categoriaSeleccionada) && (
           <p className="mt-2 text-sm text-amber-800">Esta categoría ya fue publicada; puedes volver a guardar para actualizar la hora.</p>
         )}
         <Button
           type="button"
           className="mt-4"
-          disabled={pubBusy || !catPreview || evento.estado === 'borrador'}
+          disabled={pubBusy || !categoriaSeleccionada || evento.estado === 'borrador'}
           onClick={() => void publicarCategoria()}
         >
           {pubBusy ? (

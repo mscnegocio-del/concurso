@@ -36,6 +36,23 @@ type PodioFila = {
   puntaje_final: number
 }
 
+/** PostgREST suele mandar `row_number()` (bigint) como string; sin esto `puesto === 1` falla y el podio queda vacío. */
+function normalizarFilasPodio(raw: unknown): PodioFila[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((r) => {
+      const x = r as Record<string, unknown>
+      return {
+        puesto: Number(x.puesto),
+        participante_id: String(x.participante_id ?? ''),
+        codigo: String(x.codigo ?? ''),
+        nombre_completo: String(x.nombre_completo ?? ''),
+        puntaje_final: Number(x.puntaje_final),
+      }
+    })
+    .filter((r) => Number.isFinite(r.puesto) && r.puesto >= 1)
+}
+
 const POLL_MS = 5000
 
 export function PublicoEventoPage() {
@@ -75,11 +92,16 @@ export function PublicoEventoPage() {
 
     const ultima = list[0]
     if (ultima) {
-      const { data: pod } = await supabase.rpc('publico_podio_categoria', {
+      const { data: pod, error: podErr } = await supabase.rpc('publico_podio_categoria', {
         p_codigo: codigo,
         p_categoria_id: ultima.categoria_id,
       })
-      setPodio((pod ?? []) as PodioFila[])
+      if (podErr) {
+        console.error('[publico] publico_podio_categoria', podErr)
+        setPodio([])
+      } else {
+        setPodio(normalizarFilasPodio(pod))
+      }
     } else {
       setPodio([])
     }
@@ -236,9 +258,22 @@ export function PublicoEventoPage() {
               </p>
             ) : (
               <div className="mt-8 flex items-end justify-center gap-3 md:gap-6">
-                <PodioSlot lugar={2} fila={podio.find((x) => x.puesto === 2)} puestos={header.puestos_a_premiar} />
-                <PodioSlot lugar={1} fila={podio.find((x) => x.puesto === 1)} puestos={header.puestos_a_premiar} alto />
-                <PodioSlot lugar={3} fila={podio.find((x) => x.puesto === 3)} puestos={header.puestos_a_premiar} />
+                <PodioSlot
+                  lugar={2}
+                  fila={podio.find((x) => x.puesto === 2)}
+                  puestos={Number(header.puestos_a_premiar)}
+                />
+                <PodioSlot
+                  lugar={1}
+                  fila={podio.find((x) => x.puesto === 1)}
+                  puestos={Number(header.puestos_a_premiar)}
+                  alto
+                />
+                <PodioSlot
+                  lugar={3}
+                  fila={podio.find((x) => x.puesto === 3)}
+                  puestos={Number(header.puestos_a_premiar)}
+                />
               </div>
             )}
           </div>
