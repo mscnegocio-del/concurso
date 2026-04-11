@@ -1,0 +1,64 @@
+import { Link, Navigate } from 'react-router-dom'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useAuth } from '@/hooks/useAuth'
+import { useJurado } from '@/hooks/useJurado'
+import { getRoleHome } from '@/lib/role-routes'
+
+export function HomePage() {
+  const { user, perfil, perfilError, loading } = useAuth()
+  const { session: juradoSession } = useJurado()
+
+  if (loading) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center p-6">
+        <div className="w-full max-w-lg space-y-3">
+          <Skeleton className="h-10 w-1/2" />
+          <Skeleton className="h-40 w-full" />
+        </div>
+      </div>
+    )
+  }
+
+  if (user && perfilError) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (user && !perfil) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center text-muted-foreground">
+        Cargando perfil…
+      </div>
+    )
+  }
+
+  if (user && perfil) {
+    return <Navigate to={getRoleHome(perfil.rol)} replace />
+  }
+
+  if (juradoSession) {
+    return <Navigate to="/jurado/panel" replace />
+  }
+
+  return (
+    <main className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center gap-6 p-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-2xl">Sistema de Concurso</CardTitle>
+          <CardDescription>
+            Calificación de concursos de dibujo y pintura. Elige cómo deseas ingresar.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <Button asChild className="w-full">
+            <Link to="/login">Administración (correo y OTP)</Link>
+          </Button>
+          <Button variant="outline" asChild className="w-full">
+            <Link to="/jurado">Soy jurado (código de evento)</Link>
+          </Button>
+        </CardContent>
+      </Card>
+    </main>
+  )
+}
