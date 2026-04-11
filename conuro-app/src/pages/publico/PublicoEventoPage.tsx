@@ -8,7 +8,6 @@ import {
   type ReactNode,
 } from 'react'
 import { useParams } from 'react-router-dom'
-import { Badge } from '@/components/ui/badge'
 import { playRevealChime } from '@/lib/sound'
 import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
@@ -74,7 +73,24 @@ function filaPodio(filas: PodioFila[], lugar: number): PodioFila | undefined {
 
 const POLL_MS = 5000
 
-const PUBLICO_ESCALA_MIN = 0.22
+/** Piso más alto que 0.22 para legibilidad en TVs pequeñas; el contenido compacto con podio ayuda a no llegar al piso. */
+const PUBLICO_ESCALA_MIN = 0.28
+
+function fingerprintLayout(
+  progreso: ProgresoFila[],
+  podio: PodioFila[],
+  publicados: Publicado[],
+): number {
+  const prog = progreso
+    .map((r) => `${r.categoria_id}:${r.calificaciones_registradas}/${r.calificaciones_esperadas}`)
+    .join('|')
+  const pod = podio.map((p) => `${p.puesto}:${p.participante_id}:${p.puntaje_final}`).join('|')
+  const pub = publicados.map((p) => p.categoria_id).join('|')
+  const s = `${prog}#${pod}#${pub}`
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0
+  return h
+}
 
 /**
  * Escala todo el lienzo al viewport (TV/proyector) sin scroll ni interacción.
@@ -131,7 +147,7 @@ function PublicoEscaladoViewport({
         className="will-change-transform mx-auto flex w-full min-w-0 max-w-[min(100%,96rem)] min-h-0 flex-1 flex-col"
         style={{
           transform: `scale(${scale})`,
-          transformOrigin: 'center center',
+          transformOrigin: 'top center',
         }}
       >
         {children}
@@ -148,7 +164,6 @@ export function PublicoEventoPage() {
   const [progreso, setProgreso] = useState<ProgresoFila[]>([])
   const [publicados, setPublicados] = useState<Publicado[]>([])
   const [podio, setPodio] = useState<PodioFila[]>([])
-  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null)
   const prevPubCount = useRef(0)
 
   const cargar = useCallback(async () => {
@@ -190,7 +205,6 @@ export function PublicoEventoPage() {
     } else {
       setPodio([])
     }
-    setLastSyncedAt(new Date())
   }, [codigo])
 
   useEffect(() => {
@@ -236,6 +250,11 @@ export function PublicoEventoPage() {
     return Math.min(100, Math.round((reg / esp) * 100))
   }, [progreso])
 
+  const layoutRevision = useMemo(
+    () => fingerprintLayout(progreso, podio, publicados),
+    [progreso, podio, publicados],
+  )
+
   if (!codigo) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">
@@ -257,19 +276,14 @@ export function PublicoEventoPage() {
   }
 
   const finalizado = header.estado === 'publicado'
-  /** Con podio visible: 80 % área principal al podio; sin podio: 80 % al progreso en curso. */
   const hayPodioPublicado = podio.length > 0
+  const publicadoSinPodio = publicados.length > 0 && podio.length === 0
+  /** En escritorio/TV: priorizar panel derecho si hay podio o categoría publicada sin filas aún. */
+  const panelRevelacionPrioritario = hayPodioPublicado || publicadoSinPodio
 
   return (
     <main className="fixed inset-0 z-10 flex h-[100dvh] max-h-[100dvh] w-screen flex-col overflow-hidden overscroll-none bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
-      <PublicoEscaladoViewport
-        layoutRevision={
-          (lastSyncedAt?.getTime() ?? 0) +
-          progreso.length * 17 +
-          podio.length * 31 +
-          publicados.length * 13
-        }
-      >
+      <PublicoEscaladoViewport layoutRevision={layoutRevision}>
         <div className="publico-display flex min-h-[100dvh] w-full min-w-0 flex-col px-[clamp(1rem,3.5vw,2.75rem)] py-[clamp(0.75rem,2.5dvh,2.25rem)]">
           <header className="flex shrink-0 flex-col items-center gap-[clamp(0.75rem,2.5vmin,1.5rem)] text-center md:flex-row md:items-start md:justify-between md:text-left">
           <div className="flex flex-col items-center gap-[clamp(0.75rem,2.5vmin,1.5rem)] md:flex-row md:items-center">
@@ -285,7 +299,7 @@ export function PublicoEventoPage() {
               </div>
             )}
             <div className="min-w-0">
-              <p className="text-[clamp(0.65rem,1.8vmin,0.9rem)] uppercase tracking-[0.35em] text-slate-500">
+              <p className="text-[clamp(0.65rem,1.8vmin,0.9rem)] uppercase tracking-[0.35em] text-slate-400">
                 {header.org_nombre}
               </p>
               <h1 className="mt-1 text-balance text-[clamp(1.35rem,4.2vmin,3.75rem)] font-bold leading-[1.1]">
@@ -302,19 +316,6 @@ export function PublicoEventoPage() {
             </div>
           </div>
           <div className="flex flex-col items-center gap-3 md:items-end">
-            {lastSyncedAt && (
-              <Badge
-                variant="outline"
-                className="border-slate-600 bg-slate-900/60 font-normal text-slate-300"
-              >
-                Actualizado{' '}
-                {lastSyncedAt.toLocaleTimeString('es-PE', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  second: '2-digit',
-                })}
-              </Badge>
-            )}
           {finalizado && (
             <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 px-6 py-3 text-center md:text-right">
               <p className="text-xs font-semibold uppercase tracking-widest text-amber-200">Concurso finalizado</p>
@@ -332,81 +333,100 @@ export function PublicoEventoPage() {
             <div
               className={cn(
                 'flex min-h-0 min-w-0 flex-col overflow-y-auto',
-                hayPodioPublicado ? '[flex:1_1_0%]' : '[flex:4_1_0%]',
+                'max-lg:[flex:1_1_0%]',
+                panelRevelacionPrioritario ? 'lg:[flex:1_1_0%]' : 'lg:[flex:4_1_0%]',
               )}
             >
-            <h2 className="text-[clamp(1.05rem,2.8vmin,1.5rem)] font-semibold text-slate-200">En curso</h2>
-            <p className="mt-1 text-[clamp(0.75rem,2vmin,0.95rem)] text-slate-500">
-              Progreso de calificaciones (sin mostrar notas hasta la publicación).
-            </p>
-            <div className="mt-[clamp(0.75rem,2dvh,1.5rem)] h-[clamp(0.85rem,1.8dvh,1.35rem)] w-full overflow-hidden rounded-full bg-slate-800">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-[width] duration-700"
-                style={{ width: `${pctGlobal}%` }}
-              />
-            </div>
-            <p className="mt-2 text-center text-[clamp(1.35rem,4vmin,2.25rem)] font-semibold text-slate-200">
-              {pctGlobal}%
-            </p>
+              <h2 className="text-[clamp(1.05rem,2.8vmin,1.5rem)] font-semibold text-slate-200">En curso</h2>
+              <p
+                className={cn(
+                  'mt-1 text-[clamp(0.75rem,2vmin,0.95rem)] text-slate-400',
+                  hayPodioPublicado && 'lg:sr-only',
+                )}
+              >
+                Avance por categoría. Las notas se darán a conocer al publicar cada resultado.
+              </p>
+              {hayPodioPublicado && (
+                <p className="mt-1 hidden text-[clamp(0.7rem,1.8vmin,0.85rem)] text-slate-400 lg:block">
+                  Progreso general del concurso.
+                </p>
+              )}
+              <div className="mt-[clamp(0.75rem,2dvh,1.5rem)] h-[clamp(0.85rem,1.8dvh,1.35rem)] w-full overflow-hidden rounded-full bg-slate-800">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-[width] duration-700"
+                  style={{ width: `${pctGlobal}%` }}
+                />
+              </div>
+              <p className="mt-2 text-center text-[clamp(1.35rem,4vmin,2.25rem)] font-semibold text-slate-200">
+                {pctGlobal}%
+              </p>
 
-            <ul className="mt-4 space-y-2 sm:mt-6 sm:space-y-3">
-              {progreso.map((r) => {
-                const esp = Number(r.calificaciones_esperadas)
-                const reg = Number(r.calificaciones_registradas)
-                const p = esp > 0 ? Math.min(100, Math.round((reg / esp) * 100)) : 0
-                return (
-                  <li key={r.categoria_id} className="rounded-xl border border-slate-800 bg-slate-900/50 px-4 py-3">
-                    <div className="flex justify-between gap-4 text-sm md:text-base">
-                      <span className="font-medium text-slate-200">{r.categoria_nombre}</span>
-                      <span className="text-slate-500">
-                        {reg}/{esp}
-                      </span>
-                    </div>
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-800">
-                      <div className="h-full rounded-full bg-slate-600" style={{ width: `${p}%` }} />
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
+              <ul
+                className={cn(
+                  'mt-4 space-y-2 sm:mt-6 sm:space-y-3',
+                  hayPodioPublicado && 'lg:hidden',
+                )}
+              >
+                {progreso.map((r) => {
+                  const esp = Number(r.calificaciones_esperadas)
+                  const reg = Number(r.calificaciones_registradas)
+                  const p = esp > 0 ? Math.min(100, Math.round((reg / esp) * 100)) : 0
+                  return (
+                    <li key={r.categoria_id} className="rounded-xl border border-slate-800 bg-slate-900/50 px-4 py-3">
+                      <div className="flex justify-between gap-4 text-sm md:text-base">
+                        <span className="font-medium text-slate-200">{r.categoria_nombre}</span>
+                        <span className="text-slate-400">
+                          {reg}/{esp}
+                        </span>
+                      </div>
+                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-800">
+                        <div className="h-full rounded-full bg-slate-600" style={{ width: `${p}%` }} />
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
             </div>
 
             <div
               className={cn(
                 'flex min-h-0 min-w-0 flex-col overflow-y-auto',
-                hayPodioPublicado ? '[flex:4_1_0%]' : '[flex:1_1_0%]',
+                'max-lg:[flex:1_1_0%]',
+                panelRevelacionPrioritario ? 'lg:[flex:4_1_0%]' : 'lg:[flex:1_1_0%]',
               )}
             >
-            <h2 className="text-[clamp(1.05rem,2.8vmin,1.5rem)] font-semibold text-slate-200">Última revelación</h2>
-            {nombreUltimaCategoria && (
-              <p className="mt-2 text-[clamp(1rem,2.8vmin,1.35rem)] font-medium text-indigo-200">
-                {nombreUltimaCategoria}
-              </p>
-            )}
-            <p className="mt-1 text-[clamp(0.75rem,2vmin,0.95rem)] text-slate-500">
-              Solo se muestran puntajes de categorías ya publicadas por coordinación.
-            </p>
+              <h2 className="text-[clamp(1.05rem,2.8vmin,1.5rem)] font-semibold text-slate-200">Última revelación</h2>
+              {nombreUltimaCategoria && (
+                <p className="mt-2 text-[clamp(1rem,2.8vmin,1.35rem)] font-medium text-indigo-200">
+                  {nombreUltimaCategoria}
+                </p>
+              )}
+              {(hayPodioPublicado || publicadoSinPodio) && (
+                <p className="mt-1 text-[clamp(0.75rem,2vmin,0.95rem)] text-slate-400">
+                  Puntajes visibles solo para categorías ya publicadas.
+                </p>
+              )}
 
-            {publicados.length > 0 && podio.length === 0 ? (
-              <p className="mt-10 text-center text-amber-200/90 md:text-lg">
-                La categoría ya está publicada, pero el podio aún no tiene filas. Actualiza esta página; si sigue
-                igual, en Supabase aplica las migraciones recientes de{' '}
-                <code className="rounded bg-slate-800 px-1">publico_podio_categoria</code> y comprueba que el
-                evento tenga <strong>puestos a premiar</strong> 2 o 3.
-              </p>
-            ) : podio.length === 0 ? (
-              <p className="mt-10 text-center text-slate-500 md:text-lg">
-                Aún no hay resultados publicados. Mantén esta pantalla visible.
-              </p>
-            ) : (
-              <div className="mt-6 flex min-h-0 flex-1 flex-col justify-center">
-                <div className="flex items-end justify-center gap-[clamp(0.5rem,2vmin,1.5rem)]">
-                  <PodioSlot lugar={2} fila={filaPodio(podio, 2)} puestos={puestosPodio} />
-                  <PodioSlot lugar={1} fila={filaPodio(podio, 1)} puestos={puestosPodio} alto />
-                  <PodioSlot lugar={3} fila={filaPodio(podio, 3)} puestos={puestosPodio} />
+              {publicadoSinPodio ? (
+                <p className="mt-8 text-balance text-center text-[clamp(1rem,2.8vmin,1.35rem)] leading-relaxed text-amber-100/95">
+                  {nombreUltimaCategoria
+                    ? `Estamos preparando la tabla de resultados de «${nombreUltimaCategoria}». En breve debería aparecer el podio en esta pantalla.`
+                    : 'Estamos preparando la tabla de resultados. En breve debería aparecer el podio en esta pantalla.'}
+                </p>
+              ) : podio.length === 0 ? (
+                <p className="mt-8 text-balance text-center text-[clamp(1rem,2.8vmin,1.25rem)] leading-relaxed text-slate-400">
+                  Aún no hay resultados publicados. Esta pantalla se actualizará sola; mantenla a la vista del
+                  público.
+                </p>
+              ) : (
+                <div className="mt-6 flex min-h-0 flex-1 flex-col justify-center">
+                  <div className="publico-podium-reveal flex items-end justify-center gap-[clamp(0.5rem,2vmin,1.5rem)]">
+                    <PodioSlot lugar={2} fila={filaPodio(podio, 2)} puestos={puestosPodio} />
+                    <PodioSlot lugar={1} fila={filaPodio(podio, 1)} puestos={puestosPodio} alto />
+                    <PodioSlot lugar={3} fila={filaPodio(podio, 3)} puestos={puestosPodio} />
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
             </div>
           </section>
         </div>
@@ -494,7 +514,13 @@ function PodioSlot({
       className={`flex w-[30%] max-w-[min(32vmin,15rem)] flex-col items-center sm:max-w-[min(34vmin,16rem)] ${orden}`}
     >
       <div
-        className={`flex w-full flex-col items-center justify-end rounded-t-2xl border border-slate-700 bg-slate-800/80 px-[clamp(0.5rem,1.8vmin,1rem)] pb-[clamp(1rem,2.5dvh,1.75rem)] pt-[clamp(1.25rem,3dvh,2.25rem)] text-center ${h}`}
+        className={cn(
+          'flex w-full flex-col items-center justify-end rounded-t-2xl border bg-slate-800/80 px-[clamp(0.5rem,1.8vmin,1rem)] pb-[clamp(1rem,2.5dvh,1.75rem)] pt-[clamp(1.25rem,3dvh,2.25rem)] text-center',
+          h,
+          lugar === 1 && fila
+            ? 'publico-podium-first border-amber-500/45 ring-2 ring-amber-400/35'
+            : 'border-slate-700',
+        )}
       >
         <span className="text-[clamp(1.75rem,5.5vmin,3.25rem)] font-black text-amber-300">{lugar}°</span>
         {fila ? (
@@ -503,7 +529,7 @@ function PodioSlot({
             <p className="mt-[clamp(0.5rem,1.5dvh,1rem)] text-[clamp(1.25rem,4vmin,2.5rem)] font-bold text-white">
               {fila.puntaje_final}
             </p>
-            <p className="text-[clamp(0.6rem,1.5vmin,0.75rem)] uppercase tracking-wider text-slate-500">
+            <p className="text-[clamp(0.6rem,1.5vmin,0.75rem)] uppercase tracking-wider text-slate-400">
               puntos
             </p>
           </>

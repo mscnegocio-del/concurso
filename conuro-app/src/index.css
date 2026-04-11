@@ -144,6 +144,48 @@
   line-height: 1.5;
 }
 
+/* Entrada del podio (respeta reduced-motion abajo) */
+.publico-podium-reveal {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .publico-podium-reveal {
+    animation: publico-podium-enter 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@keyframes publico-podium-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Primer puesto: pulso suave para lectura a distancia */
+@media (prefers-reduced-motion: no-preference) {
+  .publico-podium-first {
+    animation: publico-podium-first-pulse 2.4s ease-in-out infinite;
+  }
+}
+
+@keyframes publico-podium-first-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(251 191 36 / 0.25);
+  }
+
+  50% {
+    box-shadow: 0 0 0 10px rgb(251 191 36 / 0);
+  }
+}
+
 /* Podio: TV/proyector sin mouse — el nombre largo sube/baja solo con pausas al inicio y al final */
 .publico-podium-name-scroll {
   animation: publico-podium-name-cycle 18s ease-in-out infinite;
@@ -168,5 +210,13 @@
   .publico-podium-name-scroll {
     animation: none;
     transform: translateY(0);
+  }
+
+  .publico-podium-reveal {
+    animation: none;
+  }
+
+  .publico-podium-first {
+    animation: none;
   }
 }
