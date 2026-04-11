@@ -36,10 +36,16 @@ type PodioFila = {
   puntaje_final: number
 }
 
+/** 2 o 3 puestos; si llega 0/null, PodioSlot ocultaba todo el podio (puestos menor que lugar para 1,2,3). */
+function puestosPremiarSeguros(raw: unknown): 2 | 3 {
+  const n = Number(raw)
+  return n === 2 ? 2 : 3
+}
+
 /** PostgREST suele mandar `row_number()` (bigint) como string; sin esto `puesto === 1` falla y el podio queda vacío. */
 function normalizarFilasPodio(raw: unknown): PodioFila[] {
-  if (!Array.isArray(raw)) return []
-  return raw
+  const arr = Array.isArray(raw) ? raw : raw != null ? [raw] : []
+  return arr
     .map((r) => {
       const x = r as Record<string, unknown>
       return {
@@ -51,6 +57,10 @@ function normalizarFilasPodio(raw: unknown): PodioFila[] {
       }
     })
     .filter((r) => Number.isFinite(r.puesto) && r.puesto >= 1)
+}
+
+function filaPodio(filas: PodioFila[], lugar: number): PodioFila | undefined {
+  return filas.find((x) => Number(x.puesto) === lugar)
 }
 
 const POLL_MS = 5000
@@ -127,6 +137,8 @@ export function PublicoEventoPage() {
     if (!u) return null
     return progreso.find((r) => r.categoria_id === u.categoria_id)?.categoria_nombre ?? null
   }, [publicados, progreso])
+
+  const puestosPodio = useMemo(() => puestosPremiarSeguros(header?.puestos_a_premiar), [header?.puestos_a_premiar])
 
   const pctGlobal = useMemo(() => {
     const reg = progreso.reduce((a, r) => a + Number(r.calificaciones_registradas), 0)
@@ -252,28 +264,22 @@ export function PublicoEventoPage() {
               Solo se muestran puntajes de categorías ya publicadas por coordinación.
             </p>
 
-            {podio.length === 0 ? (
+            {publicados.length > 0 && podio.length === 0 ? (
+              <p className="mt-10 text-center text-amber-200/90 md:text-lg">
+                La categoría ya está publicada, pero el podio aún no tiene filas. Actualiza esta página; si sigue
+                igual, en Supabase aplica las migraciones recientes de{' '}
+                <code className="rounded bg-slate-800 px-1">publico_podio_categoria</code> y comprueba que el
+                evento tenga <strong>puestos a premiar</strong> 2 o 3.
+              </p>
+            ) : podio.length === 0 ? (
               <p className="mt-10 text-center text-slate-500 md:text-lg">
                 Aún no hay resultados publicados. Mantén esta pantalla visible.
               </p>
             ) : (
               <div className="mt-8 flex items-end justify-center gap-3 md:gap-6">
-                <PodioSlot
-                  lugar={2}
-                  fila={podio.find((x) => x.puesto === 2)}
-                  puestos={Number(header.puestos_a_premiar)}
-                />
-                <PodioSlot
-                  lugar={1}
-                  fila={podio.find((x) => x.puesto === 1)}
-                  puestos={Number(header.puestos_a_premiar)}
-                  alto
-                />
-                <PodioSlot
-                  lugar={3}
-                  fila={podio.find((x) => x.puesto === 3)}
-                  puestos={Number(header.puestos_a_premiar)}
-                />
+                <PodioSlot lugar={2} fila={filaPodio(podio, 2)} puestos={puestosPodio} />
+                <PodioSlot lugar={1} fila={filaPodio(podio, 1)} puestos={puestosPodio} alto />
+                <PodioSlot lugar={3} fila={filaPodio(podio, 3)} puestos={puestosPodio} />
               </div>
             )}
           </div>
@@ -291,7 +297,7 @@ function PodioSlot({
 }: {
   lugar: 1 | 2 | 3
   fila: PodioFila | undefined
-  puestos: number
+  puestos: 2 | 3
   alto?: boolean
 }) {
   if (puestos < lugar) {
