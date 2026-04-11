@@ -46,6 +46,9 @@ export function AdminEventoPage() {
 
   const orgId = perfil?.organizacionId
 
+  /** Incrementa cuando cambian categorías para que Participantes vuelva a cargar el selector sin F5. */
+  const [categoriasRevision, setCategoriasRevision] = useState(0)
+
   const cargar = useCallback(async () => {
     if (!orgId) return
     setError(null)
@@ -67,6 +70,11 @@ export function AdminEventoPage() {
     }
     setEvento(data as Evento | null)
   }, [orgId])
+
+  const despuesDeCambioCategorias = useCallback(async () => {
+    await cargar()
+    setCategoriasRevision((n) => n + 1)
+  }, [cargar])
 
   useEffect(() => {
     void (async () => {
@@ -205,9 +213,14 @@ export function AdminEventoPage() {
         </div>
       )}
       <EventoCabecera evento={evento} onReload={() => void cargar()} setError={setError} />
-      <SeccionCategorias eventoId={evento.id} estado={evento.estado} onChanged={cargar} />
+      <SeccionCategorias eventoId={evento.id} estado={evento.estado} onChanged={despuesDeCambioCategorias} />
       <SeccionCriterios eventoId={evento.id} estado={evento.estado} onChanged={cargar} />
-      <SeccionParticipantes eventoId={evento.id} estado={evento.estado} onChanged={cargar} />
+      <SeccionParticipantes
+        eventoId={evento.id}
+        estado={evento.estado}
+        onChanged={cargar}
+        categoriasRevision={categoriasRevision}
+      />
       <SeccionJurados
         eventoId={evento.id}
         estado={evento.estado}
@@ -318,7 +331,7 @@ function SeccionCategorias({
 }: {
   eventoId: string
   estado: EstadoEvento
-  onChanged: () => void
+  onChanged: () => void | Promise<void>
 }) {
   const [rows, setRows] = useState<Categoria[]>([])
   const [nombre, setNombre] = useState('')
@@ -352,7 +365,7 @@ function SeccionCategorias({
     if (!error) {
       setNombre('')
       await load()
-      onChanged()
+      await onChanged()
     }
   }
 
@@ -363,7 +376,7 @@ function SeccionCategorias({
     setCategoriaDeleteId(null)
     if (!error) {
       await load()
-      onChanged()
+      await onChanged()
     }
   }
 
@@ -745,10 +758,13 @@ function SeccionParticipantes({
   eventoId,
   estado,
   onChanged,
+  categoriasRevision,
 }: {
   eventoId: string
   estado: EstadoEvento
   onChanged: () => void
+  /** Se incrementa al crear/eliminar categorías (otra sección); fuerza recarga del desplegable. */
+  categoriasRevision: number
 }) {
   const [cats, setCats] = useState<Categoria[]>([])
   const [catId, setCatId] = useState<string>('')
@@ -765,7 +781,11 @@ function SeccionParticipantes({
       .order('orden')
     const list = (data ?? []) as Categoria[]
     setCats(list)
-    setCatId((prev) => (!prev && list[0] ? list[0].id : prev))
+    setCatId((prev) => {
+      if (list.length === 0) return ''
+      if (!prev || !list.some((c) => c.id === prev)) return list[0].id
+      return prev
+    })
   }, [eventoId])
 
   const loadParts = useCallback(async () => {
@@ -779,15 +799,11 @@ function SeccionParticipantes({
   }, [catId])
 
   useEffect(() => {
-    queueMicrotask(() => {
-      void loadCats()
-    })
-  }, [loadCats])
+    void loadCats()
+  }, [loadCats, categoriasRevision])
 
   useEffect(() => {
-    queueMicrotask(() => {
-      void loadParts()
-    })
+    void loadParts()
   }, [loadParts])
 
   async function agregar(e: React.FormEvent) {
