@@ -138,17 +138,10 @@
   }
 }
 
-/* Televisor / proyector: escala base sin duplicar componentes */
+/* Televisor / proyector: tipografía base fluida (ancho + alto de viewport) */
 .publico-display {
-  font-size: 1.0625rem;
+  font-size: clamp(1rem, 0.92rem + 1.1vmin, 1.3125rem);
   line-height: 1.5;
-}
-
-@media (min-width: 1024px) {
-  .publico-display {
-    font-size: 1.25rem;
-    line-height: 1.45;
-  }
 }
 
 /* Podio: TV/proyector sin mouse — el nombre largo sube/baja solo con pausas al inicio y al final */

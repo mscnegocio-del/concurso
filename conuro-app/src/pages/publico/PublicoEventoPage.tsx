@@ -95,7 +95,8 @@ function PublicoEscaladoViewport({
     const vp = viewportRef.current
     const box = scaleBoxRef.current
     if (!vp || !box) return
-    const pad = 12
+    const m = Math.min(vp.clientWidth, vp.clientHeight)
+    const pad = Math.round(Math.min(28, Math.max(6, m * 0.025)))
     const rw = Math.max(1, vp.clientWidth - pad * 2)
     const rh = Math.max(1, vp.clientHeight - pad * 2)
     const cw = Math.max(1, box.scrollWidth)
@@ -123,7 +124,7 @@ function PublicoEscaladoViewport({
   return (
     <div
       ref={viewportRef}
-      className="box-border flex min-h-0 w-full min-w-0 flex-1 flex-col items-center justify-center overflow-hidden overscroll-none p-2 sm:p-3"
+      className="box-border flex min-h-0 w-full min-w-0 flex-1 flex-col items-center justify-center overflow-hidden overscroll-none p-[clamp(0.35rem,2vmin,1.25rem)]"
     >
       <div
         ref={scaleBoxRef}
@@ -267,24 +268,28 @@ export function PublicoEventoPage() {
           publicados.length * 13
         }
       >
-        <div className="publico-display mx-auto flex w-full max-w-7xl min-w-0 flex-col px-4 py-4 sm:px-8 sm:py-6 md:px-10 md:py-8">
-          <header className="flex flex-shrink-0 flex-col items-center gap-4 text-center sm:gap-5 md:flex-row md:items-start md:justify-between md:gap-6 md:text-left">
-          <div className="flex flex-col items-center gap-4 md:flex-row md:items-center">
+        <div className="publico-display mx-auto flex w-full min-w-0 max-w-[min(100%,96rem)] flex-col px-[clamp(1rem,3.5vw,2.75rem)] py-[clamp(0.75rem,2.5dvh,2.25rem)]">
+          <header className="flex flex-shrink-0 flex-col items-center gap-[clamp(0.75rem,2.5vmin,1.5rem)] text-center md:flex-row md:items-start md:justify-between md:text-left">
+          <div className="flex flex-col items-center gap-[clamp(0.75rem,2.5vmin,1.5rem)] md:flex-row md:items-center">
             {header.logo_url ? (
               <img
                 src={header.logo_url}
                 alt=""
-                className="h-20 w-auto max-w-[200px] object-contain md:h-28"
+                className="h-[clamp(3rem,10dvh,7.5rem)] w-auto max-w-[min(48vw,14rem)] object-contain"
               />
             ) : (
-              <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-slate-800 text-2xl font-bold text-slate-500 md:h-28 md:w-28 md:text-3xl">
+              <div className="flex h-[clamp(3rem,10dvh,7.5rem)] w-[clamp(3rem,10dvh,7.5rem)] shrink-0 items-center justify-center rounded-2xl bg-slate-800 text-[clamp(1.25rem,4vmin,2rem)] font-bold text-slate-500">
                 PJ
               </div>
             )}
-            <div>
-              <p className="text-xs uppercase tracking-[0.35em] text-slate-500 md:text-sm">{header.org_nombre}</p>
-              <h1 className="mt-2 text-3xl font-bold leading-tight md:text-5xl lg:text-6xl">{header.nombre}</h1>
-              <p className="mt-2 text-slate-400 md:text-lg">
+            <div className="min-w-0">
+              <p className="text-[clamp(0.65rem,1.8vmin,0.9rem)] uppercase tracking-[0.35em] text-slate-500">
+                {header.org_nombre}
+              </p>
+              <h1 className="mt-1 text-balance text-[clamp(1.35rem,4.2vmin,3.75rem)] font-bold leading-[1.1]">
+                {header.nombre}
+              </h1>
+              <p className="mt-1 text-[clamp(0.85rem,2.2vmin,1.15rem)] text-slate-400">
                 {new Date(header.fecha).toLocaleDateString('es-PE', {
                   weekday: 'long',
                   year: 'numeric',
@@ -317,17 +322,21 @@ export function PublicoEventoPage() {
           </div>
           </header>
 
-          <section className="mt-6 grid grid-cols-1 gap-6 lg:mt-8 lg:grid-cols-2 lg:gap-8 xl:gap-10">
+          <section className="mt-[clamp(1rem,3dvh,2.5rem)] grid grid-cols-1 gap-[clamp(1rem,3vmin,2.5rem)] lg:grid-cols-2">
             <div className="min-w-0">
-            <h2 className="text-xl font-semibold text-slate-200 md:text-2xl">En curso</h2>
-            <p className="mt-1 text-sm text-slate-500">Progreso de calificaciones (sin mostrar notas hasta la publicación).</p>
-            <div className="mt-6 h-5 w-full overflow-hidden rounded-full bg-slate-800">
+            <h2 className="text-[clamp(1.05rem,2.8vmin,1.5rem)] font-semibold text-slate-200">En curso</h2>
+            <p className="mt-1 text-[clamp(0.75rem,2vmin,0.95rem)] text-slate-500">
+              Progreso de calificaciones (sin mostrar notas hasta la publicación).
+            </p>
+            <div className="mt-[clamp(0.75rem,2dvh,1.5rem)] h-[clamp(0.85rem,1.8dvh,1.35rem)] w-full overflow-hidden rounded-full bg-slate-800">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-[width] duration-700"
                 style={{ width: `${pctGlobal}%` }}
               />
             </div>
-            <p className="mt-3 text-center text-2xl font-semibold text-slate-200 md:text-3xl">{pctGlobal}%</p>
+            <p className="mt-2 text-center text-[clamp(1.35rem,4vmin,2.25rem)] font-semibold text-slate-200">
+              {pctGlobal}%
+            </p>
 
             <ul className="mt-4 space-y-2 sm:mt-6 sm:space-y-3">
               {progreso.map((r) => {
@@ -352,11 +361,13 @@ export function PublicoEventoPage() {
             </div>
 
             <div className="min-w-0">
-            <h2 className="text-xl font-semibold text-slate-200 md:text-2xl">Última revelación</h2>
+            <h2 className="text-[clamp(1.05rem,2.8vmin,1.5rem)] font-semibold text-slate-200">Última revelación</h2>
             {nombreUltimaCategoria && (
-              <p className="mt-2 text-lg font-medium text-indigo-200 md:text-xl">{nombreUltimaCategoria}</p>
+              <p className="mt-2 text-[clamp(1rem,2.8vmin,1.35rem)] font-medium text-indigo-200">
+                {nombreUltimaCategoria}
+              </p>
             )}
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-[clamp(0.75rem,2vmin,0.95rem)] text-slate-500">
               Solo se muestran puntajes de categorías ya publicadas por coordinación.
             </p>
 
@@ -393,8 +404,8 @@ function PodioNombreProyector({ nombre, destacado }: { nombre: string; destacado
   const [excesoPx, setExcesoPx] = useState(0)
 
   const trackH = destacado
-    ? 'h-[5.5rem] md:h-[6.75rem] lg:h-28'
-    : 'h-[4rem] md:h-[5rem] lg:h-24'
+    ? 'h-[clamp(3.25rem,11dvh,7rem)]'
+    : 'h-[clamp(2.5rem,8dvh,5.25rem)]'
 
   useLayoutEffect(() => {
     const outer = outerRef.current
@@ -417,7 +428,7 @@ function PodioNombreProyector({ nombre, destacado }: { nombre: string; destacado
     <div
       ref={outerRef}
       className={cn(
-        'relative mt-2 w-full max-w-[11rem] overflow-hidden md:max-w-[13rem] lg:max-w-[15rem]',
+        'relative mt-[clamp(0.35rem,1.2dvh,0.75rem)] w-full max-w-[min(42vmin,16rem)] overflow-hidden',
         trackH,
       )}
       aria-label={`Ganador: ${nombre}`}
@@ -425,7 +436,7 @@ function PodioNombreProyector({ nombre, destacado }: { nombre: string; destacado
       <div
         ref={innerRef}
         className={cn(
-          'px-0.5 text-center text-sm font-semibold leading-tight text-pretty break-words text-white md:text-base lg:text-lg',
+          'px-0.5 text-center text-[clamp(0.8rem,2.2vmin,1.15rem)] font-semibold leading-tight text-pretty break-words text-white',
           necesitaScroll
             ? 'publico-podium-name-scroll absolute inset-x-0 top-0'
             : 'absolute inset-x-0 top-1/2 -translate-y-1/2',
@@ -454,31 +465,42 @@ function PodioSlot({
   alto?: boolean
 }) {
   if (puestos < lugar) {
-    return <div className="w-[28%] max-w-[220px]" aria-hidden />
+    return <div className="w-[28%] max-w-[min(30vmin,15rem)]" aria-hidden />
   }
-  const h = alto ? 'min-h-[280px] md:min-h-[340px]' : 'min-h-[200px] md:min-h-[240px]'
+  const h = alto
+    ? 'min-h-[clamp(11rem,30dvh,22rem)]'
+    : 'min-h-[clamp(8.5rem,24dvh,17rem)]'
   const orden = lugar === 1 ? 'order-2' : lugar === 2 ? 'order-1' : 'order-3'
   return (
-    <div className={`flex w-[30%] max-w-[240px] flex-col items-center ${orden}`}>
+    <div
+      className={`flex w-[30%] max-w-[min(32vmin,15rem)] flex-col items-center sm:max-w-[min(34vmin,16rem)] ${orden}`}
+    >
       <div
-        className={`flex w-full flex-col items-center justify-end rounded-t-2xl border border-slate-700 bg-slate-800/80 px-3 pb-6 pt-8 text-center ${h}`}
+        className={`flex w-full flex-col items-center justify-end rounded-t-2xl border border-slate-700 bg-slate-800/80 px-[clamp(0.5rem,1.8vmin,1rem)] pb-[clamp(1rem,2.5dvh,1.75rem)] pt-[clamp(1.25rem,3dvh,2.25rem)] text-center ${h}`}
       >
-        <span className="text-4xl font-black text-amber-300 md:text-5xl">{lugar}°</span>
+        <span className="text-[clamp(1.75rem,5.5vmin,3.25rem)] font-black text-amber-300">{lugar}°</span>
         {fila ? (
           <>
-            <p className="mt-3 rounded-md bg-slate-950/50 px-2.5 py-1 font-mono text-sm font-bold tracking-wide text-amber-200 md:mt-4 md:text-base">
-              N.º {fila.codigo}
-            </p>
             <PodioNombreProyector nombre={fila.nombre_completo} destacado={!!alto} />
-            <p className="mt-3 text-3xl font-bold text-white md:text-4xl">{fila.puntaje_final}</p>
-            <p className="text-xs uppercase tracking-wider text-slate-500">puntos</p>
+            <p className="mt-[clamp(0.5rem,1.5dvh,1rem)] text-[clamp(1.25rem,4vmin,2.5rem)] font-bold text-white">
+              {fila.puntaje_final}
+            </p>
+            <p className="text-[clamp(0.6rem,1.5vmin,0.75rem)] uppercase tracking-wider text-slate-500">
+              puntos
+            </p>
           </>
         ) : (
           <p className="mt-6 text-slate-600">—</p>
         )}
       </div>
       <div
-        className={`w-full rounded-b-xl bg-slate-700 ${lugar === 1 ? 'h-16 md:h-24' : lugar === 2 ? 'h-10 md:h-14' : 'h-8 md:h-12'}`}
+        className={`w-full rounded-b-xl bg-slate-700 ${
+          lugar === 1
+            ? 'h-[clamp(2.5rem,6dvh,6rem)]'
+            : lugar === 2
+              ? 'h-[clamp(1.75rem,4dvh,3.75rem)]'
+              : 'h-[clamp(1.35rem,3.2dvh,3rem)]'
+        }`}
       />
     </div>
   )
