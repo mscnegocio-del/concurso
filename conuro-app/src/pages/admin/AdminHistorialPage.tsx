@@ -1,3 +1,4 @@
+import { Loader2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { SimplePanel } from '@/components/layouts/PanelLayout'
@@ -112,11 +113,18 @@ export function AdminHistorialPage() {
                     <Button
                       type="button"
                       variant="link"
-                      className="h-auto p-0"
+                      className="h-auto gap-2 p-0"
                       disabled={busyId !== null}
                       onClick={() => setCloneId(r.id)}
                     >
-                      {busyId === r.id ? 'Clonando…' : 'Clonar'}
+                      {busyId === r.id ? (
+                        <>
+                          <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                          Clonando…
+                        </>
+                      ) : (
+                        'Clonar'
+                      )}
                     </Button>
                   </td>
                 </tr>

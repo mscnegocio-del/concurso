@@ -1,3 +1,4 @@
+import { Loader2 } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import type { ActaCategoriaPdf } from '@/components/acta/ActaConcursoPdf'
 import { SimplePanel } from '@/components/layouts/PanelLayout'
@@ -208,14 +209,28 @@ export function AdminExportaciones({
           disabled={!puedeExportar || busy !== 'idle'}
           onClick={() => void onExcel()}
         >
-          {busy === 'xlsx' ? 'Generando Excel…' : 'Descargar Excel'}
+          {busy === 'xlsx' ? (
+            <>
+              <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+              Generando Excel…
+            </>
+          ) : (
+            'Descargar Excel'
+          )}
         </Button>
         <Button
           type="button"
           disabled={!puedeExportar || !puedePdfPlan || busy !== 'idle'}
           onClick={() => void onPdf()}
         >
-          {busy === 'pdf' ? 'Generando PDF…' : 'Descargar acta PDF'}
+          {busy === 'pdf' ? (
+            <>
+              <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+              Generando PDF…
+            </>
+          ) : (
+            'Descargar acta PDF'
+          )}
         </Button>
       </div>
     </SimplePanel>

@@ -1,3 +1,4 @@
+import { Loader2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { SimplePanel } from '@/components/layouts/PanelLayout'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -124,7 +125,14 @@ export function SuperOrganizacionesPage() {
             />
           </div>
           <Button type="submit" disabled={busy} className="sm:col-span-2">
-            {busy ? 'Creando…' : 'Crear organización'}
+            {busy ? (
+              <>
+                <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                Creando…
+              </>
+            ) : (
+              'Crear organización'
+            )}
           </Button>
         </form>
       </SimplePanel>

@@ -1,3 +1,4 @@
+import { Loader2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -215,7 +216,14 @@ export function JuradoCalificarPage() {
             disabled={saving}
             onClick={() => void guardar()}
           >
-            {saving ? 'Guardando…' : 'Confirmar calificación'}
+            {saving ? (
+              <>
+                <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                Guardando…
+              </>
+            ) : (
+              'Confirmar calificación'
+            )}
           </Button>
         )}
       </CardContent>

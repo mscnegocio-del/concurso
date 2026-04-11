@@ -1,3 +1,4 @@
+import { Loader2 } from 'lucide-react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { ClipboardEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
@@ -16,7 +17,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { Skeleton } from '@/components/ui/skeleton'
+import { AuthLoadingPlaceholder } from '@/components/layouts/AuthLoadingPlaceholder'
 import { useAuth } from '@/hooks/useAuth'
 import { LOGIN_EMAIL_KEY } from '@/lib/constants'
 import { getRoleHome } from '@/lib/role-routes'
@@ -74,22 +75,11 @@ export function LoginPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center p-6">
-        <div className="w-full max-w-md space-y-3">
-          <Skeleton className="h-10 w-2/3" />
-          <Skeleton className="h-32 w-full" />
-        </div>
-      </div>
-    )
+    return <AuthLoadingPlaceholder label="Cargando sesión" />
   }
 
   if (user && !perfil && !perfilError) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center p-6 text-muted-foreground">
-        Cargando perfil…
-      </div>
-    )
+    return <AuthLoadingPlaceholder label="Cargando perfil" />
   }
 
   async function onSendEmail(data: EmailForm) {
@@ -243,7 +233,14 @@ export function LoginPage() {
                   )}
                 />
                 <Button type="submit" className="w-full" disabled={sending}>
-                  {sending ? 'Enviando…' : 'Enviar código OTP'}
+                  {sending ? (
+                    <>
+                      <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                      Enviando…
+                    </>
+                  ) : (
+                    'Enviar código OTP'
+                  )}
                 </Button>
               </form>
             </Form>
@@ -284,16 +281,24 @@ export function LoginPage() {
                 disabled={verifying}
                 onClick={() => void onVerifyOtp()}
               >
-                {verifying ? 'Verificando…' : 'Verificar e ingresar'}
+                {verifying ? (
+                  <>
+                    <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                    Verificando…
+                  </>
+                ) : (
+                  'Verificar e ingresar'
+                )}
               </Button>
               <div className="flex flex-wrap gap-3 text-sm">
                 <Button
                   type="button"
                   variant="link"
-                  className="h-auto p-0"
+                  className="h-auto gap-2 p-0"
                   disabled={sending}
                   onClick={() => void onResend()}
                 >
+                  {sending ? <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden /> : null}
                   Reenviar código
                 </Button>
                 <Button

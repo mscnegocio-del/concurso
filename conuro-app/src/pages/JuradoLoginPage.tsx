@@ -1,3 +1,4 @@
+import { Loader2 } from 'lucide-react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
@@ -147,7 +148,14 @@ export function JuradoLoginPage() {
                 )}
               />
               <Button type="submit" className="w-full" size="lg" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? 'Validando…' : 'Ingresar'}
+                {form.formState.isSubmitting ? (
+                  <>
+                    <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                    Validando…
+                  </>
+                ) : (
+                  'Ingresar'
+                )}
               </Button>
             </form>
           </Form>

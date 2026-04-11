@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
+import { AuthLoadingPlaceholder } from '@/components/layouts/AuthLoadingPlaceholder'
 import { useAuth } from '@/hooks/useAuth'
 import { getRoleHome } from '@/lib/role-routes'
 import type { RolUsuario } from '@/types/auth'
@@ -14,11 +15,7 @@ export function RequireRole({
   const { perfil, perfilError, user } = useAuth()
 
   if (user && !perfil && !perfilError) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center text-slate-600">
-        Cargando perfil…
-      </div>
-    )
+    return <AuthLoadingPlaceholder className="min-h-[40vh]" label="Cargando perfil" />
   }
 
   if (!user) {

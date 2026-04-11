@@ -1,3 +1,4 @@
+import { Loader2 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { registrarAuditoria } from '@/lib/audit'
@@ -5,6 +6,7 @@ import { AdminExportaciones } from '@/pages/admin/AdminExportaciones'
 import { generarCodigoAccesoEvento } from '@/lib/codigo-evento'
 import { puedeAgregarJurado } from '@/lib/planes'
 import { SimplePanel } from '@/components/layouts/PanelLayout'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -130,7 +132,15 @@ export function AdminEventoPage() {
   if (loading) {
     return (
       <SimplePanel>
-        <p className="text-slate-600">Cargando evento…</p>
+        <div role="status" aria-live="polite" className="space-y-4">
+          <span className="sr-only">Cargando evento</span>
+          <Skeleton className="h-7 w-2/3 max-w-md" />
+          <Skeleton className="h-4 w-full max-w-lg" />
+          <div className="flex flex-col gap-3 pt-2">
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+        </div>
       </SimplePanel>
     )
   }
@@ -1079,9 +1089,10 @@ function SeccionEstado({
           <button
             type="button"
             disabled={busy}
-            className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             onClick={() => void transicion('abierto')}
           >
+            {busy ? <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden /> : null}
             Activar evento (pasar a abierto)
           </button>
         )}
@@ -1089,9 +1100,10 @@ function SeccionEstado({
           <button
             type="button"
             disabled={busy}
-            className="rounded-lg bg-indigo-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             onClick={() => void transicion('calificando')}
           >
+            {busy ? <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden /> : null}
             Iniciar calificación
           </button>
         )}
@@ -1099,9 +1111,10 @@ function SeccionEstado({
           <button
             type="button"
             disabled={busy}
-            className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             onClick={() => void transicion('cerrado')}
           >
+            {busy ? <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden /> : null}
             Cerrar calificación
           </button>
         )}

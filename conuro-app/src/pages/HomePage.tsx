@@ -1,7 +1,7 @@
 import { Link, Navigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
+import { AuthLoadingPlaceholder } from '@/components/layouts/AuthLoadingPlaceholder'
 import { useAuth } from '@/hooks/useAuth'
 import { useJurado } from '@/hooks/useJurado'
 import { getRoleHome } from '@/lib/role-routes'
@@ -11,14 +11,7 @@ export function HomePage() {
   const { session: juradoSession } = useJurado()
 
   if (loading) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center p-6">
-        <div className="w-full max-w-lg space-y-3">
-          <Skeleton className="h-10 w-1/2" />
-          <Skeleton className="h-40 w-full" />
-        </div>
-      </div>
-    )
+    return <AuthLoadingPlaceholder label="Cargando sesión" />
   }
 
   if (user && perfilError) {
@@ -26,11 +19,7 @@ export function HomePage() {
   }
 
   if (user && !perfil) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center text-muted-foreground">
-        Cargando perfil…
-      </div>
-    )
+    return <AuthLoadingPlaceholder label="Cargando perfil" />
   }
 
   if (user && perfil) {

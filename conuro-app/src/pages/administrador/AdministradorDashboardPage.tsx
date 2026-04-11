@@ -1,8 +1,10 @@
+import { Loader2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { SimplePanel } from '@/components/layouts/PanelLayout'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/hooks/useAuth'
 import { registrarAuditoria } from '@/lib/audit'
 import { supabase } from '@/lib/supabase'
@@ -48,6 +50,8 @@ export function AdministradorDashboardPage() {
   const [error, setError] = useState<string | null>(null)
   const [pubBusy, setPubBusy] = useState(false)
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null)
+  /** Evita mostrar «Sin evento» antes de terminar la primera carga para esta org. */
+  const [eventoInicializado, setEventoInicializado] = useState(false)
 
   const appOrigin = typeof window !== 'undefined' ? window.location.origin : ''
   const urlPublica = evento ? `${appOrigin}/publico/${evento.codigo_acceso}` : ''
@@ -63,6 +67,7 @@ export function AdministradorDashboardPage() {
       .maybeSingle()
     if (e) setError(e.message)
     setEvento((data as Evento) ?? null)
+    setEventoInicializado(true)
   }, [orgId])
 
   const cargarProgreso = useCallback(async () => {
@@ -104,6 +109,10 @@ export function AdministradorDashboardPage() {
     }
     setRanking((data ?? []) as RankFila[])
   }, [evento?.id, catPreview])
+
+  useEffect(() => {
+    setEventoInicializado(false)
+  }, [orgId])
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -217,6 +226,19 @@ export function AdministradorDashboardPage() {
     return (
       <SimplePanel>
         <p className="text-slate-600">Sin organización asignada.</p>
+      </SimplePanel>
+    )
+  }
+
+  if (!eventoInicializado) {
+    return (
+      <SimplePanel>
+        <div role="status" aria-live="polite" className="space-y-4">
+          <span className="sr-only">Cargando evento</span>
+          <Skeleton className="h-7 w-2/3 max-w-md" />
+          <Skeleton className="h-4 w-full max-w-lg" />
+          <Skeleton className="h-24 w-full" />
+        </div>
       </SimplePanel>
     )
   }
@@ -343,7 +365,14 @@ export function AdministradorDashboardPage() {
           disabled={pubBusy || !catPreview || evento.estado === 'borrador'}
           onClick={() => void publicarCategoria()}
         >
-          {pubBusy ? 'Publicando…' : 'Publicar categoría en pantalla pública'}
+          {pubBusy ? (
+            <>
+              <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+              Publicando…
+            </>
+          ) : (
+            'Publicar categoría en pantalla pública'
+          )}
         </Button>
       </SimplePanel>
 

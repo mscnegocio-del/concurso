@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
+import { AuthLoadingPlaceholder } from '@/components/layouts/AuthLoadingPlaceholder'
 import { useAuth } from '@/hooks/useAuth'
 
 export function RequireAuth({ children }: { children: ReactNode }) {
@@ -7,11 +8,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   const location = useLocation()
 
   if (loading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center text-slate-600">
-        Cargando sesión…
-      </div>
-    )
+    return <AuthLoadingPlaceholder className="min-h-[40vh]" label="Cargando sesión" />
   }
 
   if (!user) {
