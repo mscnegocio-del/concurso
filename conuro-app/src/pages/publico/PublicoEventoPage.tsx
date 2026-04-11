@@ -124,11 +124,11 @@ function PublicoEscaladoViewport({
   return (
     <div
       ref={viewportRef}
-      className="box-border flex min-h-0 w-full min-w-0 flex-1 flex-col items-center justify-center overflow-hidden overscroll-none p-[clamp(0.35rem,2vmin,1.25rem)]"
+      className="box-border flex min-h-0 w-full min-w-0 flex-1 flex-col items-stretch justify-start overflow-hidden overscroll-none p-[clamp(0.35rem,2vmin,1.25rem)]"
     >
       <div
         ref={scaleBoxRef}
-        className="will-change-transform"
+        className="will-change-transform mx-auto flex w-full min-w-0 max-w-[min(100%,96rem)] min-h-0 flex-1 flex-col"
         style={{
           transform: `scale(${scale})`,
           transformOrigin: 'center center',
@@ -257,6 +257,8 @@ export function PublicoEventoPage() {
   }
 
   const finalizado = header.estado === 'publicado'
+  /** Con podio visible: 80 % área principal al podio; sin podio: 80 % al progreso en curso. */
+  const hayPodioPublicado = podio.length > 0
 
   return (
     <main className="fixed inset-0 z-10 flex h-[100dvh] max-h-[100dvh] w-screen flex-col overflow-hidden overscroll-none bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
@@ -268,8 +270,8 @@ export function PublicoEventoPage() {
           publicados.length * 13
         }
       >
-        <div className="publico-display mx-auto flex w-full min-w-0 max-w-[min(100%,96rem)] flex-col px-[clamp(1rem,3.5vw,2.75rem)] py-[clamp(0.75rem,2.5dvh,2.25rem)]">
-          <header className="flex flex-shrink-0 flex-col items-center gap-[clamp(0.75rem,2.5vmin,1.5rem)] text-center md:flex-row md:items-start md:justify-between md:text-left">
+        <div className="publico-display flex min-h-[100dvh] w-full min-w-0 flex-col px-[clamp(1rem,3.5vw,2.75rem)] py-[clamp(0.75rem,2.5dvh,2.25rem)]">
+          <header className="flex shrink-0 flex-col items-center gap-[clamp(0.75rem,2.5vmin,1.5rem)] text-center md:flex-row md:items-start md:justify-between md:text-left">
           <div className="flex flex-col items-center gap-[clamp(0.75rem,2.5vmin,1.5rem)] md:flex-row md:items-center">
             {header.logo_url ? (
               <img
@@ -322,8 +324,17 @@ export function PublicoEventoPage() {
           </div>
           </header>
 
-          <section className="mt-[clamp(1rem,3dvh,2.5rem)] grid grid-cols-1 gap-[clamp(1rem,3vmin,2.5rem)] lg:grid-cols-2">
-            <div className="min-w-0">
+          <section
+            className={cn(
+              'mt-[clamp(1rem,3dvh,2.5rem)] flex min-h-0 flex-1 flex-col gap-[clamp(1rem,3vmin,2.5rem)] lg:flex-row lg:gap-[clamp(0.75rem,2vmin,1.5rem)]',
+            )}
+          >
+            <div
+              className={cn(
+                'flex min-h-0 min-w-0 flex-col overflow-y-auto',
+                hayPodioPublicado ? '[flex:1_1_0%]' : '[flex:4_1_0%]',
+              )}
+            >
             <h2 className="text-[clamp(1.05rem,2.8vmin,1.5rem)] font-semibold text-slate-200">En curso</h2>
             <p className="mt-1 text-[clamp(0.75rem,2vmin,0.95rem)] text-slate-500">
               Progreso de calificaciones (sin mostrar notas hasta la publicación).
@@ -360,7 +371,12 @@ export function PublicoEventoPage() {
             </ul>
             </div>
 
-            <div className="min-w-0">
+            <div
+              className={cn(
+                'flex min-h-0 min-w-0 flex-col overflow-y-auto',
+                hayPodioPublicado ? '[flex:4_1_0%]' : '[flex:1_1_0%]',
+              )}
+            >
             <h2 className="text-[clamp(1.05rem,2.8vmin,1.5rem)] font-semibold text-slate-200">Última revelación</h2>
             {nombreUltimaCategoria && (
               <p className="mt-2 text-[clamp(1rem,2.8vmin,1.35rem)] font-medium text-indigo-200">
@@ -383,10 +399,12 @@ export function PublicoEventoPage() {
                 Aún no hay resultados publicados. Mantén esta pantalla visible.
               </p>
             ) : (
-              <div className="mt-8 flex items-end justify-center gap-3 md:gap-6">
-                <PodioSlot lugar={2} fila={filaPodio(podio, 2)} puestos={puestosPodio} />
-                <PodioSlot lugar={1} fila={filaPodio(podio, 1)} puestos={puestosPodio} alto />
-                <PodioSlot lugar={3} fila={filaPodio(podio, 3)} puestos={puestosPodio} />
+              <div className="mt-6 flex min-h-0 flex-1 flex-col justify-center">
+                <div className="flex items-end justify-center gap-[clamp(0.5rem,2vmin,1.5rem)]">
+                  <PodioSlot lugar={2} fila={filaPodio(podio, 2)} puestos={puestosPodio} />
+                  <PodioSlot lugar={1} fila={filaPodio(podio, 1)} puestos={puestosPodio} alto />
+                  <PodioSlot lugar={3} fila={filaPodio(podio, 3)} puestos={puestosPodio} />
+                </div>
               </div>
             )}
             </div>
