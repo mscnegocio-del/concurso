@@ -5,6 +5,16 @@ import { AdminExportaciones } from '@/pages/admin/AdminExportaciones'
 import { generarCodigoAccesoEvento } from '@/lib/codigo-evento'
 import { puedeAgregarJurado } from '@/lib/planes'
 import { SimplePanel } from '@/components/layouts/PanelLayout'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { supabase } from '@/lib/supabase'
 
 type EstadoEvento =
@@ -302,6 +312,7 @@ function SeccionCategorias({
 }) {
   const [rows, setRows] = useState<Categoria[]>([])
   const [nombre, setNombre] = useState('')
+  const [categoriaDeleteId, setCategoriaDeleteId] = useState<string | null>(null)
   const editable = estado === 'borrador'
 
   const load = useCallback(async () => {
@@ -335,9 +346,11 @@ function SeccionCategorias({
     }
   }
 
-  async function eliminar(id: string) {
-    if (!confirm('¿Eliminar categoría? Solo si no tiene participantes.')) return
+  async function ejecutarEliminarCategoria() {
+    const id = categoriaDeleteId
+    if (!id) return
     const { error } = await supabase.from('categorias').delete().eq('id', id)
+    setCategoriaDeleteId(null)
     if (!error) {
       await load()
       onChanged()
@@ -357,7 +370,7 @@ function SeccionCategorias({
               <button
                 type="button"
                 className="text-red-600 hover:underline"
-                onClick={() => void eliminar(r.id)}
+                onClick={() => setCategoriaDeleteId(r.id)}
               >
                 Eliminar
               </button>
@@ -378,6 +391,30 @@ function SeccionCategorias({
           </button>
         </form>
       )}
+
+      <AlertDialog open={categoriaDeleteId !== null} onOpenChange={(o) => !o && setCategoriaDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar categoría?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Solo debe hacerse si la categoría no tiene participantes. Si existen participantes o datos
+              vinculados, la operación puede fallar.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(e) => {
+                e.preventDefault()
+                void ejecutarEliminarCategoria()
+              }}
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </SimplePanel>
   )
 }
@@ -394,6 +431,7 @@ function SeccionCriterios({
   const [rows, setRows] = useState<Criterio[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
+  const [criterioDeleteId, setCriterioDeleteId] = useState<string | null>(null)
   const editable = estado === 'borrador'
   /** `evento_id` actual; evita aplicar un SELECT de un evento anterior si cambió la prop. */
   const eventoIdRef = useRef(eventoId)
@@ -508,26 +546,34 @@ function SeccionCriterios({
     await onChanged()
   }
 
-  async function eliminarCriterio(id: string) {
+  function solicitarEliminarCriterio(id: string) {
     setMsg(null)
     if (rows.length <= 1) {
       setMsg('Debe existir al menos un criterio de calificación.')
       return
     }
-    const { count, error: countErr } = await supabase
-      .from('calificaciones')
-      .select('*', { count: 'exact', head: true })
-      .eq('criterio_id', id)
-    if (countErr) {
-      setMsg(countErr.message)
-      return
-    }
-    if ((count ?? 0) > 0) {
-      setMsg('No se puede eliminar: ya hay calificaciones registradas para este criterio.')
-      return
-    }
-    if (!confirm('¿Eliminar este criterio?')) return
+    void (async () => {
+      const { count, error: countErr } = await supabase
+        .from('calificaciones')
+        .select('*', { count: 'exact', head: true })
+        .eq('criterio_id', id)
+      if (countErr) {
+        setMsg(countErr.message)
+        return
+      }
+      if ((count ?? 0) > 0) {
+        setMsg('No se puede eliminar: ya hay calificaciones registradas para este criterio.')
+        return
+      }
+      setCriterioDeleteId(id)
+    })()
+  }
+
+  async function ejecutarEliminarCriterio() {
+    const id = criterioDeleteId
+    if (!id) return
     const { error } = await supabase.from('criterios').delete().eq('id', id)
+    setCriterioDeleteId(null)
     if (error) {
       setMsg(error.message)
       return
@@ -609,7 +655,7 @@ function SeccionCriterios({
                     <button
                       type="button"
                       className="text-red-600 hover:underline"
-                      onClick={() => void eliminarCriterio(r.id)}
+                      onClick={() => solicitarEliminarCriterio(r.id)}
                     >
                       Eliminar
                     </button>
@@ -649,6 +695,29 @@ function SeccionCriterios({
           </button>
         </form>
       )}
+
+      <AlertDialog open={criterioDeleteId !== null} onOpenChange={(o) => !o && setCriterioDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar este criterio?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. El criterio se eliminará del evento.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(e) => {
+                e.preventDefault()
+                void ejecutarEliminarCriterio()
+              }}
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </SimplePanel>
   )
 }
@@ -675,6 +744,7 @@ function SeccionParticipantes({
   const [catId, setCatId] = useState<string>('')
   const [parts, setParts] = useState<Participante[]>([])
   const [nombre, setNombre] = useState('')
+  const [participanteDeleteId, setParticipanteDeleteId] = useState<string | null>(null)
   const editable = estado === 'borrador' || estado === 'abierto'
 
   const loadCats = useCallback(async () => {
@@ -726,9 +796,11 @@ function SeccionParticipantes({
     }
   }
 
-  async function eliminar(id: string) {
-    if (!confirm('¿Eliminar participante?')) return
+  async function ejecutarEliminarParticipante() {
+    const id = participanteDeleteId
+    if (!id) return
     const { error } = await supabase.from('participantes').delete().eq('id', id)
+    setParticipanteDeleteId(null)
     if (!error) {
       await loadParts()
       onChanged()
@@ -759,7 +831,7 @@ function SeccionParticipantes({
               <span className="font-mono text-slate-500">{p.codigo}</span> {p.nombre_completo}
             </span>
             {editable && (
-              <button type="button" className="text-red-600" onClick={() => void eliminar(p.id)}>
+              <button type="button" className="text-red-600" onClick={() => setParticipanteDeleteId(p.id)}>
                 Quitar
               </button>
             )}
@@ -779,6 +851,33 @@ function SeccionParticipantes({
           </button>
         </form>
       )}
+
+      <AlertDialog
+        open={participanteDeleteId !== null}
+        onOpenChange={(o) => !o && setParticipanteDeleteId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Quitar participante?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se eliminará el participante de esta categoría. Si tiene calificaciones, la operación puede no
+              permitirse según las reglas de la base de datos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(e) => {
+                e.preventDefault()
+                void ejecutarEliminarParticipante()
+              }}
+            >
+              Quitar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </SimplePanel>
   )
 }
@@ -798,6 +897,7 @@ function SeccionJurados({
 }) {
   const [rows, setRows] = useState<Jurado[]>([])
   const [nombre, setNombre] = useState('')
+  const [juradoDeleteId, setJuradoDeleteId] = useState<string | null>(null)
   const editable = estado === 'borrador' || estado === 'abierto'
 
   const load = useCallback(async () => {
@@ -836,9 +936,11 @@ function SeccionJurados({
     }
   }
 
-  async function eliminar(id: string) {
-    if (!confirm('¿Eliminar jurado?')) return
+  async function ejecutarEliminarJurado() {
+    const id = juradoDeleteId
+    if (!id) return
     const { error } = await supabase.from('jurados').delete().eq('id', id)
+    setJuradoDeleteId(null)
     if (!error) {
       await load()
       onChanged()
@@ -853,7 +955,7 @@ function SeccionJurados({
           <li key={r.id} className="flex justify-between py-1">
             <span>{r.nombre_completo}</span>
             {editable && (
-              <button type="button" className="text-red-600" onClick={() => void eliminar(r.id)}>
+              <button type="button" className="text-red-600" onClick={() => setJuradoDeleteId(r.id)}>
                 Eliminar
               </button>
             )}
@@ -876,6 +978,30 @@ function SeccionJurados({
       {planOrg === 'gratuito' && rows.length >= 3 && (
         <p className="mt-3 text-xs text-amber-800">Plan gratuito: máximo 3 jurados.</p>
       )}
+
+      <AlertDialog open={juradoDeleteId !== null} onOpenChange={(o) => !o && setJuradoDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar jurado?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se quitará al jurado de la lista del evento. Si ya registró calificaciones, la operación puede no
+              permitirse.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(e) => {
+                e.preventDefault()
+                void ejecutarEliminarJurado()
+              }}
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </SimplePanel>
   )
 }
