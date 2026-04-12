@@ -1,6 +1,7 @@
-import { Loader2 } from 'lucide-react'
+import { Copy, Loader2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { SimplePanel } from '@/components/layouts/PanelLayout'
 import {
   AlertDialog,
@@ -20,6 +21,7 @@ import { Label } from '@/components/ui/label'
 import { useAuth } from '@/hooks/useAuth'
 import { registrarAuditoria } from '@/lib/audit'
 import { getStoredEventoFoco, setStoredEventoFoco } from '@/lib/admin-evento-foco'
+import { copyText } from '@/lib/clipboard'
 import { crearEventoBorrador } from '@/lib/crear-evento-borrador'
 import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
@@ -86,6 +88,12 @@ export function AdminHistorialPage() {
   function irAGestionar(id: string) {
     if (orgId) setStoredEventoFoco(orgId, id)
     navigate(`/admin/evento/${id}`)
+  }
+
+  async function copiarCodigoAcceso(codigo: string) {
+    const ok = await copyText(codigo)
+    if (ok) toast.success('Código copiado')
+    else toast.error('No se pudo copiar al portapapeles')
   }
 
   async function onCrearNuevo(e: React.FormEvent<HTMLFormElement>) {
@@ -212,7 +220,22 @@ export function AdminHistorialPage() {
                   </td>
                   <td className="py-2 pr-4">{r.fecha}</td>
                   <td className="py-2 pr-4">{r.estado}</td>
-                  <td className="py-2 pr-4 font-mono text-xs">{r.codigo_acceso}</td>
+                  <td className="py-2 pr-4">
+                    <span className="inline-flex items-center gap-0.5">
+                      <span className="font-mono text-xs">{r.codigo_acceso}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-7 shrink-0"
+                        aria-label={`Copiar código ${r.codigo_acceso}`}
+                        title="Copiar código"
+                        onClick={() => void copiarCodigoAcceso(r.codigo_acceso)}
+                      >
+                        <Copy className="size-3.5" aria-hidden />
+                      </Button>
+                    </span>
+                  </td>
                   <td className="py-2 pr-4 text-muted-foreground">
                     {new Date(r.created_at).toLocaleString('es-PE')}
                   </td>
@@ -267,8 +290,24 @@ export function AdminHistorialPage() {
                   </Badge>
                 ) : null}
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {r.fecha} · {r.estado} · <span className="font-mono">{r.codigo_acceso}</span>
+              <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                <span>
+                  {r.fecha} · {r.estado} ·{' '}
+                  <span className="inline-flex items-center gap-0.5 align-middle">
+                    <span className="font-mono">{r.codigo_acceso}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-7 shrink-0"
+                      aria-label={`Copiar código ${r.codigo_acceso}`}
+                      title="Copiar código"
+                      onClick={() => void copiarCodigoAcceso(r.codigo_acceso)}
+                    >
+                      <Copy className="size-3.5" aria-hidden />
+                    </Button>
+                  </span>
+                </span>
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {new Date(r.created_at).toLocaleString('es-PE')}

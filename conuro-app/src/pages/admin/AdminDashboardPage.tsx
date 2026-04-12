@@ -1,6 +1,7 @@
-import { Loader2 } from 'lucide-react'
+import { Copy, Loader2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { SimplePanel } from '@/components/layouts/PanelLayout'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -11,6 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/hooks/useAuth'
 import { registrarAuditoria } from '@/lib/audit'
 import { getStoredEventoFoco } from '@/lib/admin-evento-foco'
+import { copyText } from '@/lib/clipboard'
 import { crearEventoBorrador } from '@/lib/crear-evento-borrador'
 import { maxJuradosPorPlan } from '@/lib/planes'
 import { supabase } from '@/lib/supabase'
@@ -69,6 +71,12 @@ export function AdminDashboardPage() {
       setLoading(false)
     })()
   }, [load])
+
+  async function copiarCodigoAcceso(codigo: string) {
+    const ok = await copyText(codigo)
+    if (ok) toast.success('Código copiado')
+    else toast.error('No se pudo copiar al portapapeles')
+  }
 
   async function onCrearRapido(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -156,7 +164,20 @@ export function AdminDashboardPage() {
                     {enFoco.estado}
                   </Badge>
                   Fecha: {enFoco.fecha} · Código:{' '}
-                  <span className="font-mono text-foreground">{enFoco.codigo_acceso}</span>
+                  <span className="inline-flex items-center gap-0.5 align-middle">
+                    <span className="font-mono text-foreground">{enFoco.codigo_acceso}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 shrink-0"
+                      aria-label="Copiar código de acceso"
+                      title="Copiar código"
+                      onClick={() => void copiarCodigoAcceso(enFoco.codigo_acceso)}
+                    >
+                      <Copy className="size-4" aria-hidden />
+                    </Button>
+                  </span>
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">

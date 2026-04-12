@@ -1,6 +1,6 @@
 import { Loader2 } from 'lucide-react'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { useJurado } from '@/hooks/useJurado'
+import { ConuroMarketingCta } from '@/components/marketing/ConuroMarketingCta'
 import { supabase } from '@/lib/supabase'
 import type { JuradoSession } from '@/types/jurado'
 
@@ -34,6 +35,7 @@ type FormValues = z.input<typeof schema>
 export function JuradoLoginPage() {
   const navigate = useNavigate()
   const { session, setSession } = useJurado()
+  const [hintEventoNoDisponible, setHintEventoNoDisponible] = useState(false)
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -51,6 +53,7 @@ export function JuradoLoginPage() {
   }
 
   async function onSubmit(values: FormValues) {
+    setHintEventoNoDisponible(false)
     const parsed = schema.parse(values)
     const { data: eventoRows, error: e1 } = await supabase.rpc(
       'buscar_evento_por_codigo',
@@ -62,6 +65,7 @@ export function JuradoLoginPage() {
     }
     const evento = eventoRows?.[0]
     if (!evento) {
+      setHintEventoNoDisponible(true)
       form.setError('root', {
         message: 'Código no válido o el evento no está abierto para jurados.',
       })
@@ -113,7 +117,14 @@ export function JuradoLoginPage() {
           {form.formState.errors.root && (
             <Alert variant="destructive" className="mb-4">
               <AlertTitle>No se pudo ingresar</AlertTitle>
-              <AlertDescription>{form.formState.errors.root.message}</AlertDescription>
+              <AlertDescription className="space-y-3">
+                <p>{form.formState.errors.root.message}</p>
+                {hintEventoNoDisponible && (
+                  <p className="text-sm font-normal opacity-95">
+                    Si el concurso ya terminó, los resultados oficiales los comunica la organización.
+                  </p>
+                )}
+              </AlertDescription>
             </Alert>
           )}
 
@@ -162,7 +173,11 @@ export function JuradoLoginPage() {
             </form>
           </Form>
 
-          <p className="mt-6 text-center text-sm text-muted-foreground">
+          <div className="mt-6">
+            <ConuroMarketingCta utmMedium="jurado_login" className="text-center" />
+          </div>
+
+          <p className="mt-4 text-center text-sm text-muted-foreground">
             <Button variant="link" className="h-auto p-0" asChild>
               <Link to="/">Volver al inicio</Link>
             </Button>

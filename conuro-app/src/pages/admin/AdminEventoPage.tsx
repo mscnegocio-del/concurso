@@ -1,11 +1,13 @@
-import { Loader2 } from 'lucide-react'
+import { Copy, Loader2 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
 import { registrarAuditoria } from '@/lib/audit'
 import { AdminExportaciones } from '@/pages/admin/AdminExportaciones'
 import { puedeAgregarJurado } from '@/lib/planes'
 import { SimplePanel } from '@/components/layouts/PanelLayout'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -19,6 +21,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { setStoredEventoFoco } from '@/lib/admin-evento-foco'
+import { copyText } from '@/lib/clipboard'
 import { supabase } from '@/lib/supabase'
 
 type EstadoEvento =
@@ -125,9 +128,9 @@ export function AdminEventoPage() {
           No existe un evento con ese identificador en tu organización, o fue eliminado.
         </p>
         {error && (
-          <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-            {error}
-          </div>
+          <Alert variant="destructive" className="mt-4">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
         <div className="mt-4 flex flex-wrap gap-2">
           <Button variant="outline" asChild>
@@ -147,9 +150,9 @@ export function AdminEventoPage() {
   return (
     <div className="space-y-6">
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-          {error}
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
       <EventoCabecera evento={evento} onReload={() => void cargar()} setError={setError} />
       <SeccionCategorias eventoId={evento.id} estado={evento.estado} onChanged={despuesDeCambioCategorias} />
@@ -190,6 +193,12 @@ function EventoCabecera({
   const [edit, setEdit] = useState(false)
   const [guardando, setGuardando] = useState(false)
 
+  async function copiarCodigoAcceso() {
+    const ok = await copyText(evento.codigo_acceso)
+    if (ok) toast.success('Código copiado')
+    else toast.error('No se pudo copiar al portapapeles')
+  }
+
   async function guardar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (evento.estado !== 'borrador') return
@@ -222,7 +231,20 @@ function EventoCabecera({
           <p className="mt-1 text-sm text-slate-600">
             Estado:{' '}
             <span className="font-medium text-slate-800">{evento.estado}</span> · Código jurados:{' '}
-            <span className="font-mono font-semibold">{evento.codigo_acceso}</span>
+            <span className="inline-flex items-center gap-0.5 align-middle">
+              <span className="font-mono font-semibold">{evento.codigo_acceso}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-8 shrink-0 text-slate-700"
+                aria-label="Copiar código de acceso"
+                title="Copiar código"
+                onClick={() => void copiarCodigoAcceso()}
+              >
+                <Copy className="size-4" aria-hidden />
+              </Button>
+            </span>
           </p>
         </div>
         {evento.estado === 'borrador' && !edit && (
@@ -620,9 +642,9 @@ function SeccionCriterios({
     <SimplePanel>
       <h3 className="text-lg font-semibold text-slate-900">Criterios de calificación</h3>
       {msg && (
-        <p className="mt-2 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">
-          {msg}
-        </p>
+        <Alert variant="destructive" className="mt-2">
+          <AlertDescription>{msg}</AlertDescription>
+        </Alert>
       )}
       <ul className="mt-3 space-y-3 text-sm">
         {rows.map((r) => (

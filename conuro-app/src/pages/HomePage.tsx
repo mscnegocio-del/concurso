@@ -1,4 +1,5 @@
 import { Link, Navigate } from 'react-router-dom'
+import { ConuroMarketingCta } from '@/components/marketing/ConuroMarketingCta'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { AuthLoadingPlaceholder } from '@/components/layouts/AuthLoadingPlaceholder'
@@ -48,6 +49,9 @@ export function HomePage() {
           </Button>
         </CardContent>
       </Card>
+      <div className="px-1">
+        <ConuroMarketingCta utmMedium="home" className="text-center" />
+      </div>
     </main>
   )
 }

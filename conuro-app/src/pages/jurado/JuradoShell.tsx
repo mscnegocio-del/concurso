@@ -1,4 +1,5 @@
 import { Link, Outlet } from 'react-router-dom'
+import { ConuroMarketingCta } from '@/components/marketing/ConuroMarketingCta'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { useJurado } from '@/hooks/useJurado'
@@ -8,7 +9,7 @@ export function JuradoShell() {
   const { session, clearSession } = useJurado()
   if (!session) return null
   return (
-    <div className="min-h-dvh bg-background pb-[env(safe-area-inset-bottom)]">
+    <div className="flex min-h-dvh flex-col bg-background pb-[env(safe-area-inset-bottom)]">
       <header className="border-b bg-card shadow-sm">
         <div
           className={cn(
@@ -38,9 +39,12 @@ export function JuradoShell() {
         </div>
         <Separator />
       </header>
-      <main className="mx-auto max-w-lg px-4 py-6 sm:max-w-2xl">
+      <main className="mx-auto w-full max-w-lg flex-1 px-4 py-6 sm:max-w-2xl">
         <Outlet />
       </main>
+      <footer className="mx-auto w-full max-w-lg shrink-0 border-t border-border/60 px-4 py-3 sm:max-w-2xl">
+        <ConuroMarketingCta utmMedium="jurado_panel" className="text-center" />
+      </footer>
     </div>
   )
 }

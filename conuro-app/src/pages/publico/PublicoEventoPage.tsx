@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import { useParams } from 'react-router-dom'
+import { ConuroMarketingCta } from '@/components/marketing/ConuroMarketingCta'
 import { playRevealChime } from '@/lib/sound'
 import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
@@ -434,6 +435,16 @@ export function PublicoEventoPage() {
               )}
             </div>
           </section>
+          {/*
+            Franja inferior discreta en proyector/TV: texto mínimo y opacidad baja para no competir con el podio.
+          */}
+          <footer className="mt-auto shrink-0 pt-[clamp(0.35rem,1dvh,0.75rem)] opacity-[0.72]">
+            <ConuroMarketingCta
+              utmMedium="publico_tv"
+              darkSurface
+              className="text-center text-[clamp(0.55rem,1.35vmin,0.72rem)] leading-tight"
+            />
+          </footer>
         </div>
       </PublicoEscaladoViewport>
     </main>

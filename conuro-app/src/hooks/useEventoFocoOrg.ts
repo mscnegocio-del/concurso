@@ -25,7 +25,8 @@ export function useEventoFocoOrg(orgId: string | undefined) {
       return
     }
     setError(null)
-    let targetId: string | null = getStoredEventoFoco(orgId)
+    setReady(false)
+    const targetId = getStoredEventoFoco(orgId)
     if (targetId) {
       const { data: row } = await supabase
         .from('eventos')
@@ -62,8 +63,9 @@ export function useEventoFocoOrg(orgId: string | undefined) {
   }, [orgId])
 
   useEffect(() => {
-    setReady(false)
-    queueMicrotask(() => void reload())
+    queueMicrotask(() => {
+      void reload()
+    })
   }, [reload])
 
   return { evento, ready, error, reload }

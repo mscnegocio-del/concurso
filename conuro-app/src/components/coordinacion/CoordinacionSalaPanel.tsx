@@ -1,11 +1,13 @@
-import { Loader2 } from 'lucide-react'
+import { Copy, Loader2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { toast } from 'sonner'
 import { SimplePanel } from '@/components/layouts/PanelLayout'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { registrarAuditoria } from '@/lib/audit'
+import { copyText } from '@/lib/clipboard'
 import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 
@@ -228,11 +230,17 @@ export function CoordinacionSalaPanel({
   }
 
   async function copiarUrl() {
-    try {
-      await navigator.clipboard.writeText(urlPublica)
-    } catch {
-      setError('No se pudo copiar al portapapeles.')
-    }
+    if (!urlPublica) return
+    const ok = await copyText(urlPublica)
+    if (ok) toast.success('URL copiada')
+    else toast.error('No se pudo copiar al portapapeles')
+  }
+
+  async function copiarCodigoAcceso() {
+    if (!evento) return
+    const ok = await copyText(evento.codigo_acceso)
+    if (ok) toast.success('Código copiado')
+    else toast.error('No se pudo copiar al portapapeles')
   }
 
   if (!eventoReady) {
@@ -308,7 +316,20 @@ export function CoordinacionSalaPanel({
             <h2 className="text-lg font-semibold text-foreground">{evento.nombre}</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               Estado: <span className="font-medium text-foreground">{evento.estado}</span> · Código público:{' '}
-              <span className="font-mono">{evento.codigo_acceso}</span>
+              <span className="inline-flex items-center gap-0.5 align-middle">
+                <span className="font-mono">{evento.codigo_acceso}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 shrink-0"
+                  aria-label="Copiar código de acceso"
+                  title="Copiar código"
+                  onClick={() => void copiarCodigoAcceso()}
+                >
+                  <Copy className="size-4" aria-hidden />
+                </Button>
+              </span>
             </p>
           </div>
           {lastSyncedAt && (
@@ -333,7 +354,8 @@ export function CoordinacionSalaPanel({
             {urlPublica}
           </a>
         </p>
-        <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => void copiarUrl()}>
+        <Button type="button" variant="outline" size="sm" className="mt-2 gap-2" onClick={() => void copiarUrl()}>
+          <Copy className="size-4 shrink-0" aria-hidden />
           Copiar URL
         </Button>
         {error && (
