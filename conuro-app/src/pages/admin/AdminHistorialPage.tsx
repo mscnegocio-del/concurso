@@ -45,6 +45,7 @@ export function AdminHistorialPage() {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [cloneId, setCloneId] = useState<string | null>(null)
   const [createBusy, setCreateBusy] = useState(false)
+  const [plantillasCriterios, setPlantillasCriterios] = useState<{ id: string; nombre_plantilla: string }[]>([])
 
   const load = useCallback(async () => {
     if (!orgId) return
@@ -61,6 +62,18 @@ export function AdminHistorialPage() {
   useEffect(() => {
     queueMicrotask(() => void load())
   }, [load])
+
+  useEffect(() => {
+    if (!orgId) return
+    void (async () => {
+      const { data } = await supabase
+        .from('plantillas_criterios')
+        .select('id, nombre_plantilla')
+        .eq('organizacion_id', orgId)
+        .order('created_at', { ascending: false })
+      setPlantillasCriterios((data ?? []) as { id: string; nombre_plantilla: string }[])
+    })()
+  }, [orgId])
 
   async function clonar(id: string) {
     setBusyId(id)
@@ -104,6 +117,7 @@ export function AdminHistorialPage() {
     const nombre = String(fd.get('nombre') ?? '').trim()
     const fecha = String(fd.get('fecha') ?? '')
     const puestos = Number(fd.get('puestos') ?? 3) === 2 ? 2 : 3
+    const plantillaId = String(fd.get('plantilla_criterios_id') ?? '').trim()
     setCreateBusy(true)
     try {
       const { data, error: errMsg } = await crearEventoBorrador(supabase, {
@@ -122,8 +136,25 @@ export function AdminHistorialPage() {
         eventoId: data.id,
         usuarioId: perfil.id,
         accion: 'evento_creado',
-        detalle: { nombre: data.nombre },
+        detalle: { nombre: data.nombre, plantilla_criterios_id: plantillaId || null },
       })
+      if (plantillaId) {
+        const { error: rpcErr } = await supabase.rpc('admin_aplicar_plantilla_criterios', {
+          p_evento_id: data.id,
+          p_plantilla_id: plantillaId,
+        })
+        if (rpcErr) {
+          toast.error(`Evento creado, pero no se pudo aplicar la plantilla: ${rpcErr.message}`)
+        } else {
+          await registrarAuditoria({
+            organizacionId: orgId,
+            eventoId: data.id,
+            usuarioId: perfil.id,
+            accion: 'evento_criterios_desde_plantilla',
+            detalle: { plantilla_id: plantillaId, al_crear: true },
+          })
+        }
+      }
       await load()
       navigate(`/admin/evento/${data.id}`)
     } finally {
@@ -151,41 +182,64 @@ export function AdminHistorialPage() {
 
         <div className="mt-6 rounded-lg border border-border bg-muted/30 p-4">
           <h3 className="text-sm font-semibold text-foreground">Crear evento nuevo</h3>
-          <p className="mt-1 text-xs text-muted-foreground">Borrador en blanco; luego configuras categorías y criterios.</p>
-          <form
-            className="mt-4 flex max-w-xl flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end"
-            onSubmit={(e) => void onCrearNuevo(e)}
-          >
-            <div className="min-w-[8rem] flex-1 space-y-2">
-              <Label htmlFor="hist-nombre">Nombre</Label>
-              <Input id="hist-nombre" name="nombre" required placeholder="Nombre del concurso" />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Borrador; puedes cargar criterios desde una{' '}
+            <Link to="/admin/plantillas-criterios" className="text-primary underline underline-offset-2">
+              plantilla guardada
+            </Link>{' '}
+            o configurarlos después.
+          </p>
+          <form className="mt-4 flex max-w-2xl flex-col gap-3" onSubmit={(e) => void onCrearNuevo(e)}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+              <div className="min-w-[8rem] flex-1 space-y-2">
+                <Label htmlFor="hist-nombre">Nombre</Label>
+                <Input id="hist-nombre" name="nombre" required placeholder="Nombre del concurso" />
+              </div>
+              <div className="w-full space-y-2 sm:w-36">
+                <Label htmlFor="hist-fecha">Fecha</Label>
+                <Input id="hist-fecha" name="fecha" type="date" required />
+              </div>
+              <div className="w-full space-y-2 sm:w-32">
+                <Label htmlFor="hist-puestos">Podio</Label>
+                <select
+                  id="hist-puestos"
+                  name="puestos"
+                  defaultValue={3}
+                  className="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                >
+                  <option value={2}>2</option>
+                  <option value={3}>3</option>
+                </select>
+              </div>
+              <Button type="submit" disabled={createBusy} className="w-full sm:w-auto">
+                {createBusy ? (
+                  <>
+                    <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                    Creando…
+                  </>
+                ) : (
+                  'Crear borrador'
+                )}
+              </Button>
             </div>
-            <div className="w-full space-y-2 sm:w-36">
-              <Label htmlFor="hist-fecha">Fecha</Label>
-              <Input id="hist-fecha" name="fecha" type="date" required />
-            </div>
-            <div className="w-full space-y-2 sm:w-32">
-              <Label htmlFor="hist-puestos">Podio</Label>
-              <select
-                id="hist-puestos"
-                name="puestos"
-                defaultValue={3}
-                className="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-              >
-                <option value={2}>2</option>
-                <option value={3}>3</option>
-              </select>
-            </div>
-            <Button type="submit" disabled={createBusy} className="w-full sm:w-auto">
-              {createBusy ? (
-                <>
-                  <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
-                  Creando…
-                </>
-              ) : (
-                'Crear borrador'
-              )}
-            </Button>
+            {plantillasCriterios.length > 0 && (
+              <div className="w-full max-w-md space-y-2">
+                <Label htmlFor="hist-plantilla">Plantilla de criterios (opcional)</Label>
+                <select
+                  id="hist-plantilla"
+                  name="plantilla_criterios_id"
+                  defaultValue=""
+                  className="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                >
+                  <option value="">Sin plantilla</option>
+                  {plantillasCriterios.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nombre_plantilla}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </form>
         </div>
 

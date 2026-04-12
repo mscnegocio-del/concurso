@@ -13,6 +13,7 @@ import { AdminEventoEntryPage } from '@/pages/admin/AdminEventoEntryPage'
 import { AdminHistorialPage } from '@/pages/admin/AdminHistorialPage'
 import { AdminEventoPage } from '@/pages/admin/AdminEventoPage'
 import { AdminOrganizacionPage } from '@/pages/admin/AdminOrganizacionPage'
+import { AdminPlantillasCriteriosPage } from '@/pages/admin/AdminPlantillasCriteriosPage'
 import { AdminShell } from '@/pages/admin/AdminShell'
 import { AdministradorDashboardPage } from '@/pages/administrador/AdministradorDashboardPage'
 import { AdministradorShell } from '@/pages/administrador/AdministradorShell'
@@ -69,6 +70,7 @@ export default function App() {
               <Route path="evento" element={<AdminEventoEntryPage />} />
               <Route path="evento/:eventoId" element={<AdminEventoPage />} />
               <Route path="historial" element={<AdminHistorialPage />} />
+              <Route path="plantillas-criterios" element={<AdminPlantillasCriteriosPage />} />
               <Route path="coordinacion" element={<AdminCoordinacionPage />} />
               <Route path="organizacion" element={<AdminOrganizacionPage />} />
             </Route>

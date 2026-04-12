@@ -173,7 +173,13 @@ export function AdminEventoPage() {
         setError={setError}
       />
       <SeccionCategorias eventoId={evento.id} estado={evento.estado} onChanged={despuesDeCambioCategorias} />
-      <SeccionCriterios eventoId={evento.id} estado={evento.estado} onChanged={cargar} />
+      <SeccionCriterios
+        eventoId={evento.id}
+        estado={evento.estado}
+        organizacionId={perfil.organizacionId}
+        usuarioId={perfil.id}
+        onChanged={cargar}
+      />
       <SeccionParticipantes
         eventoId={evento.id}
         estado={evento.estado}
@@ -183,6 +189,8 @@ export function AdminEventoPage() {
       <SeccionJurados
         eventoId={evento.id}
         estado={evento.estado}
+        organizacionId={perfil.organizacionId}
+        usuarioId={perfil.id}
         planOrg={orgPlan}
         onChanged={cargar}
         setError={setError}
@@ -638,10 +646,14 @@ function SeccionCategorias({
 function SeccionCriterios({
   eventoId,
   estado,
+  organizacionId,
+  usuarioId,
   onChanged,
 }: {
   eventoId: string
   estado: EstadoEvento
+  organizacionId: string
+  usuarioId: string
   onChanged: () => void | Promise<void>
 }) {
   const [rows, setRows] = useState<Criterio[]>([])
@@ -652,6 +664,10 @@ function SeccionCriterios({
   const [guardandoCriterio, setGuardandoCriterio] = useState(false)
   const [desempateBusy, setDesempateBusy] = useState(false)
   const [eliminandoCriterio, setEliminandoCriterio] = useState(false)
+  const [plantillasOpts, setPlantillasOpts] = useState<{ id: string; nombre_plantilla: string }[]>([])
+  const [plantillaAplicarId, setPlantillaAplicarId] = useState('')
+  const [aplicandoPlantilla, setAplicandoPlantilla] = useState(false)
+  const [confirmAplicarPlantilla, setConfirmAplicarPlantilla] = useState(false)
   const editable = estado === 'borrador'
   /** `evento_id` actual; evita aplicar un SELECT de un evento anterior si cambió la prop. */
   const eventoIdRef = useRef(eventoId)
@@ -684,6 +700,48 @@ function SeccionCriterios({
     loadQueueRef.current = Promise.resolve()
     void load()
   }, [load, eventoId])
+
+  useEffect(() => {
+    if (!editable) return
+    void (async () => {
+      const { data } = await supabase
+        .from('plantillas_criterios')
+        .select('id, nombre_plantilla')
+        .eq('organizacion_id', organizacionId)
+        .order('created_at', { ascending: false })
+      setPlantillasOpts((data ?? []) as { id: string; nombre_plantilla: string }[])
+    })()
+  }, [organizacionId, editable])
+
+  async function ejecutarAplicarPlantilla() {
+    if (!plantillaAplicarId) return
+    setAplicandoPlantilla(true)
+    setMsg(null)
+    try {
+      const { error: rpcErr } = await supabase.rpc('admin_aplicar_plantilla_criterios', {
+        p_evento_id: eventoId,
+        p_plantilla_id: plantillaAplicarId,
+      })
+      if (rpcErr) {
+        setMsg(rpcErr.message)
+        toast.error(rpcErr.message)
+        return
+      }
+      setConfirmAplicarPlantilla(false)
+      await load()
+      await onChanged()
+      await registrarAuditoria({
+        organizacionId,
+        eventoId,
+        usuarioId,
+        accion: 'evento_criterios_desde_plantilla',
+        detalle: { plantilla_id: plantillaAplicarId },
+      })
+      toast.success('Criterios cargados desde la plantilla')
+    } finally {
+      setAplicandoPlantilla(false)
+    }
+  }
 
   async function agregar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -826,6 +884,43 @@ function SeccionCriterios({
   return (
     <SimplePanel>
       <h3 className="text-lg font-semibold text-slate-900">Criterios de calificación</h3>
+      {editable && plantillasOpts.length > 0 && (
+        <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50/80 p-3 text-sm">
+          <p className="font-medium text-slate-800">Cargar desde plantilla</p>
+          <p className="mt-1 text-xs text-slate-600">
+            Solo en borrador y si aún no hay calificaciones. Reemplaza todos los criterios del evento por los de la
+            plantilla elegida.
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <select
+              value={plantillaAplicarId}
+              onChange={(e) => setPlantillaAplicarId(e.target.value)}
+              className="border-input bg-background h-10 min-w-[12rem] rounded-md border px-3 text-sm"
+            >
+              <option value="">Elegir plantilla…</option>
+              {plantillasOpts.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nombre_plantilla}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              disabled={!plantillaAplicarId || aplicandoPlantilla}
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 disabled:opacity-50"
+              onClick={() => setConfirmAplicarPlantilla(true)}
+            >
+              Aplicar plantilla
+            </button>
+            <Link
+              to="/admin/plantillas-criterios"
+              className="text-xs text-primary underline underline-offset-2"
+            >
+              Gestionar plantillas
+            </Link>
+          </div>
+        </div>
+      )}
       {msg && (
         <Alert variant="destructive" className="mt-2">
           <AlertDescription>{msg}</AlertDescription>
@@ -995,6 +1090,42 @@ function SeccionCriterios({
                 </>
               ) : (
                 'Eliminar'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={confirmAplicarPlantilla}
+        onOpenChange={(o) => {
+          if (!o && !aplicandoPlantilla) setConfirmAplicarPlantilla(false)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Reemplazar criterios del evento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se eliminarán los criterios actuales de este evento y se copiarán los de la plantilla. No debe haber
+              calificaciones registradas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={aplicandoPlantilla}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={aplicandoPlantilla}
+              onClick={(e) => {
+                e.preventDefault()
+                void ejecutarAplicarPlantilla()
+              }}
+            >
+              {aplicandoPlantilla ? (
+                <>
+                  <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                  Aplicando…
+                </>
+              ) : (
+                'Sí, aplicar'
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -1199,12 +1330,16 @@ function SeccionParticipantes({
 function SeccionJurados({
   eventoId,
   estado,
+  organizacionId,
+  usuarioId,
   planOrg,
   onChanged,
   setError,
 }: {
   eventoId: string
   estado: EstadoEvento
+  organizacionId: string
+  usuarioId: string
   planOrg: string
   onChanged: () => void
   setError: (s: string | null) => void
@@ -1214,6 +1349,10 @@ function SeccionJurados({
   const [juradoDeleteId, setJuradoDeleteId] = useState<string | null>(null)
   const [agregandoJurado, setAgregandoJurado] = useState(false)
   const [eliminandoJurado, setEliminandoJurado] = useState(false)
+  const [eventosOrigen, setEventosOrigen] = useState<{ id: string; nombre: string; fecha: string }[]>([])
+  const [origenImportId, setOrigenImportId] = useState('')
+  const [importandoJurados, setImportandoJurados] = useState(false)
+  const [confirmImportJurados, setConfirmImportJurados] = useState(false)
   const editable = estado === 'borrador' || estado === 'abierto'
 
   const load = useCallback(async () => {
@@ -1230,6 +1369,52 @@ function SeccionJurados({
       void load()
     })
   }, [load])
+
+  useEffect(() => {
+    if (!editable) return
+    void (async () => {
+      const { data } = await supabase
+        .from('eventos')
+        .select('id, nombre, fecha')
+        .eq('organizacion_id', organizacionId)
+        .neq('id', eventoId)
+        .order('created_at', { ascending: false })
+      setEventosOrigen((data ?? []) as { id: string; nombre: string; fecha: string }[])
+    })()
+  }, [organizacionId, eventoId, editable])
+
+  async function ejecutarImportarJurados() {
+    if (!origenImportId) return
+    setImportandoJurados(true)
+    setError(null)
+    try {
+      const { data: agregados, error: rpcErr } = await supabase.rpc('admin_copiar_jurados_evento', {
+        p_destino_id: eventoId,
+        p_origen_id: origenImportId,
+      })
+      if (rpcErr) {
+        setError(rpcErr.message)
+        toast.error(rpcErr.message)
+        return
+      }
+      const n = typeof agregados === 'number' ? agregados : 0
+      setConfirmImportJurados(false)
+      await load()
+      onChanged()
+      await registrarAuditoria({
+        organizacionId,
+        eventoId,
+        usuarioId,
+        accion: 'evento_jurados_importados',
+        detalle: { origen_evento_id: origenImportId, agregados: n },
+      })
+      toast.success(
+        n > 0 ? `Se añadieron ${n} jurado(s).` : 'No había jurados nuevos por importar (o límite del plan).',
+      )
+    } finally {
+      setImportandoJurados(false)
+    }
+  }
 
   async function agregar(e: React.FormEvent) {
     e.preventDefault()
@@ -1276,6 +1461,37 @@ function SeccionJurados({
   return (
     <SimplePanel>
       <h3 className="text-lg font-semibold text-slate-900">Jurados</h3>
+      {editable && eventosOrigen.length > 0 && (
+        <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50/80 p-3 text-sm">
+          <p className="font-medium text-slate-800">Importar desde otro evento</p>
+          <p className="mt-1 text-xs text-slate-600">
+            Copia nombres y orden desde un evento anterior de la misma organización. No duplica nombres que ya existan
+            aquí. Plan gratuito: máximo 3 jurados en total.
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <select
+              value={origenImportId}
+              onChange={(e) => setOrigenImportId(e.target.value)}
+              className="border-input bg-background h-10 min-w-[12rem] max-w-full flex-1 rounded-md border px-3 text-sm"
+            >
+              <option value="">Elegir evento origen…</option>
+              {eventosOrigen.map((ev) => (
+                <option key={ev.id} value={ev.id}>
+                  {ev.nombre} ({ev.fecha})
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              disabled={!origenImportId || importandoJurados}
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 disabled:opacity-50"
+              onClick={() => setConfirmImportJurados(true)}
+            >
+              Importar jurados
+            </button>
+          </div>
+        </div>
+      )}
       <ol className="mt-3 list-decimal pl-5 text-sm">
         {rows.map((r) => (
           <li key={r.id} className="flex justify-between py-1">
@@ -1342,6 +1558,42 @@ function SeccionJurados({
                 </>
               ) : (
                 'Eliminar'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={confirmImportJurados}
+        onOpenChange={(o) => {
+          if (!o && !importandoJurados) setConfirmImportJurados(false)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Importar jurados?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se añadirán al final de la lista los jurados del evento elegido que aún no figuren aquí (mismo nombre).
+              Respeta el límite de tu plan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={importandoJurados}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={importandoJurados}
+              onClick={(e) => {
+                e.preventDefault()
+                void ejecutarImportarJurados()
+              }}
+            >
+              {importandoJurados ? (
+                <>
+                  <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                  Importando…
+                </>
+              ) : (
+                'Importar'
               )}
             </AlertDialogAction>
           </AlertDialogFooter>

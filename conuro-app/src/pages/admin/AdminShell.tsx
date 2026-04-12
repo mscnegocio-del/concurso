@@ -1,4 +1,4 @@
-import { Building2, History, Home, LayoutList, LogOut, MonitorPlay } from 'lucide-react'
+import { Building2, ClipboardList, History, Home, LayoutList, LogOut, MonitorPlay } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 import {
   MobileBottomNavButton,
@@ -77,6 +77,19 @@ export function AdminShell() {
             Historial
           </NavLink>
           <NavLink
+            to="/admin/plantillas-criterios"
+            className={({ isActive }) =>
+              cn(
+                'rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                isActive
+                  ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                  : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground',
+              )
+            }
+          >
+            Plantillas de criterios
+          </NavLink>
+          <NavLink
             to="/admin/organizacion"
             className={({ isActive }) =>
               cn(
@@ -97,6 +110,7 @@ export function AdminShell() {
           <MobileBottomNavItem to="/admin/evento" icon={<LayoutList />} label="Evento" />
           <MobileBottomNavItem to="/admin/coordinacion" icon={<MonitorPlay />} label="Sala" />
           <MobileBottomNavItem to="/admin/historial" icon={<History />} label="Historial" />
+          <MobileBottomNavItem to="/admin/plantillas-criterios" icon={<ClipboardList />} label="Plantillas" />
           <MobileBottomNavItem to="/admin/organizacion" icon={<Building2 />} label="Org." />
           <MobileBottomNavButton icon={<LogOut />} label="Salir" onClick={() => void signOut()} />
         </MobilePanelBottomNav>
