@@ -3,7 +3,10 @@ import { CoordinacionSalaPanel } from '@/components/coordinacion/CoordinacionSal
 import { useAuth } from '@/hooks/useAuth'
 import { useEventoFocoOrg } from '@/hooks/useEventoFocoOrg'
 
-export function AdministradorDashboardPage() {
+const AVISO =
+  'Mismas acciones que el panel del coordinador. Úsalo si no hay coordinador en sala o para urgencias (publicar en el proyector).'
+
+export function AdminCoordinacionPage() {
   const { perfil } = useAuth()
   const orgId = perfil?.organizacionId
   const { evento, ready, error, reload } = useEventoFocoOrg(orgId)
@@ -31,6 +34,7 @@ export function AdministradorDashboardPage() {
         evento={evento}
         eventoReady={ready}
         onReloadEvento={() => void reload()}
+        avisoAdmin={AVISO}
       />
     </div>
   )

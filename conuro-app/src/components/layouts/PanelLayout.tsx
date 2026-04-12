@@ -18,16 +18,32 @@ function SidebarNav({
   subNav,
   logoutLabel,
   onLogout,
+  brandingLogoUrl,
+  brandingAlt,
 }: {
   title: string
   subNav?: ReactNode
   logoutLabel: string
   onLogout: () => void | Promise<void>
+  brandingLogoUrl?: string | null
+  brandingAlt?: string
 }) {
+  const reduceMotion =
+    typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
       <div className="border-b border-sidebar-border px-4 py-4">
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Conuro</p>
+        {brandingLogoUrl ? (
+          <img
+            src={brandingLogoUrl}
+            alt={brandingAlt ? `${brandingAlt}` : ''}
+            className="mt-2 h-9 max-w-[11rem] object-contain object-left"
+            loading="lazy"
+            decoding="async"
+            style={reduceMotion ? undefined : { transition: 'opacity 0.2s ease' }}
+          />
+        ) : null}
         <h1 className="mt-1 text-lg font-semibold leading-tight text-sidebar-foreground">{title}</h1>
         {subNav ? <div className="mt-4 space-y-1">{subNav}</div> : null}
       </div>
@@ -56,12 +72,18 @@ export function PanelLayout({
   logoutLabel = 'Cerrar sesión',
   children,
   subNav,
+  brandingLogoUrl,
+  brandingAlt,
 }: {
   title: string
   onLogout: () => void | Promise<void>
   logoutLabel?: string
   children?: ReactNode
   subNav?: ReactNode
+  /** Logo institucional (URL pública de Storage o externa). */
+  brandingLogoUrl?: string | null
+  /** Texto alternativo del logo (nombre de la organización). */
+  brandingAlt?: string
 }) {
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -79,6 +101,8 @@ export function PanelLayout({
           subNav={subNav}
           logoutLabel={logoutLabel}
           onLogout={onLogout}
+          brandingLogoUrl={brandingLogoUrl}
+          brandingAlt={brandingAlt}
         />
       </aside>
 
@@ -99,10 +123,20 @@ export function PanelLayout({
                 subNav={subNav}
                 logoutLabel={logoutLabel}
                 onLogout={onLogout}
+                brandingLogoUrl={brandingLogoUrl}
+                brandingAlt={brandingAlt}
               />
             </SheetContent>
           </Sheet>
-          <h1 className="truncate text-base font-semibold text-foreground">{title}</h1>
+          {brandingLogoUrl ? (
+            <img
+              src={brandingLogoUrl}
+              alt=""
+              className="h-8 max-w-[6rem] shrink-0 object-contain"
+              aria-hidden
+            />
+          ) : null}
+          <h1 className="min-w-0 truncate text-base font-semibold text-foreground">{title}</h1>
         </header>
 
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 lg:px-8 lg:py-8">

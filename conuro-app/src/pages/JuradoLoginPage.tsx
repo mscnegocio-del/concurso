@@ -85,14 +85,16 @@ export function JuradoLoginPage() {
       return
     }
 
+    const ev = evento as { id: string; nombre: string; logo_url?: string | null }
     const next: JuradoSession = {
-      eventoId: evento.id,
-      eventoNombre: evento.nombre,
+      eventoId: ev.id,
+      eventoNombre: ev.nombre,
       codigoAcceso: parsed.codigo,
       juradoId: row.jurado_id,
       nombreCompleto: row.nombre_completo,
       orden: row.orden,
       tokenSesion: row.token_sesion as string,
+      logoUrl: ev.logo_url ?? null,
     }
     setSession(next)
     navigate('/jurado/panel', { replace: true })

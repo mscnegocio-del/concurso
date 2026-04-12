@@ -7,8 +7,12 @@ import { RequireJurado } from '@/components/routing/RequireJurado'
 import { RequireRole } from '@/components/routing/RequireRole'
 import { AuthProvider } from '@/contexts/auth-context'
 import { JuradoProvider } from '@/contexts/jurado-context'
+import { AdminCoordinacionPage } from '@/pages/admin/AdminCoordinacionPage'
+import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage'
+import { AdminEventoEntryPage } from '@/pages/admin/AdminEventoEntryPage'
 import { AdminHistorialPage } from '@/pages/admin/AdminHistorialPage'
 import { AdminEventoPage } from '@/pages/admin/AdminEventoPage'
+import { AdminOrganizacionPage } from '@/pages/admin/AdminOrganizacionPage'
 import { AdminShell } from '@/pages/admin/AdminShell'
 import { AdministradorDashboardPage } from '@/pages/administrador/AdministradorDashboardPage'
 import { AdministradorShell } from '@/pages/administrador/AdministradorShell'
@@ -61,9 +65,12 @@ export default function App() {
                 </RequireAuth>
               }
             >
-              <Route index element={<Navigate to="/admin/evento" replace />} />
-              <Route path="evento" element={<AdminEventoPage />} />
+              <Route index element={<AdminDashboardPage />} />
+              <Route path="evento" element={<AdminEventoEntryPage />} />
+              <Route path="evento/:eventoId" element={<AdminEventoPage />} />
               <Route path="historial" element={<AdminHistorialPage />} />
+              <Route path="coordinacion" element={<AdminCoordinacionPage />} />
+              <Route path="organizacion" element={<AdminOrganizacionPage />} />
             </Route>
 
             <Route

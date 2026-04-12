@@ -1,11 +1,12 @@
 import { Loader2 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { registrarAuditoria } from '@/lib/audit'
 import { AdminExportaciones } from '@/pages/admin/AdminExportaciones'
-import { generarCodigoAccesoEvento } from '@/lib/codigo-evento'
 import { puedeAgregarJurado } from '@/lib/planes'
 import { SimplePanel } from '@/components/layouts/PanelLayout'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   AlertDialog,
@@ -17,6 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { setStoredEventoFoco } from '@/lib/admin-evento-foco'
 import { supabase } from '@/lib/supabase'
 
 type EstadoEvento =
@@ -38,12 +40,12 @@ type Evento = {
 }
 
 export function AdminEventoPage() {
+  const { eventoId } = useParams<{ eventoId: string }>()
   const { perfil } = useAuth()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [evento, setEvento] = useState<Evento | null>(null)
   const [orgPlan, setOrgPlan] = useState<string>('gratuito')
-  const [crearEventoBusy, setCrearEventoBusy] = useState(false)
 
   const orgId = perfil?.organizacionId
 
@@ -51,7 +53,7 @@ export function AdminEventoPage() {
   const [categoriasRevision, setCategoriasRevision] = useState(0)
 
   const cargar = useCallback(async () => {
-    if (!orgId) return
+    if (!orgId || !eventoId) return
     setError(null)
     const { data: orgRow } = await supabase.from('organizaciones').select('plan').eq('id', orgId).maybeSingle()
     setOrgPlan((orgRow as { plan?: string } | null)?.plan ?? 'gratuito')
@@ -60,17 +62,18 @@ export function AdminEventoPage() {
       .select(
         'id, organizacion_id, nombre, descripcion, fecha, estado, codigo_acceso, puestos_a_premiar',
       )
+      .eq('id', eventoId)
       .eq('organizacion_id', orgId)
-      .order('created_at', { ascending: false })
-      .limit(1)
       .maybeSingle()
     if (e) {
       setError(e.message)
       setEvento(null)
       return
     }
-    setEvento(data as Evento | null)
-  }, [orgId])
+    const row = data as Evento | null
+    setEvento(row)
+    if (row) setStoredEventoFoco(orgId, row.id)
+  }, [orgId, eventoId])
 
   const despuesDeCambioCategorias = useCallback(async () => {
     await cargar()
@@ -85,63 +88,18 @@ export function AdminEventoPage() {
     })()
   }, [cargar])
 
-  async function crearEventoInicial(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    if (!orgId || !perfil) return
-    setError(null)
-    const fd = new FormData(e.currentTarget)
-    const nombre = String(fd.get('nombre') ?? '').trim()
-    const fecha = String(fd.get('fecha') ?? '')
-    const puestos = Number(fd.get('puestos') ?? 3)
-    if (!nombre || !fecha) {
-      setError('Nombre y fecha son obligatorios.')
-      return
-    }
-    setCrearEventoBusy(true)
-    try {
-      let codigo = generarCodigoAccesoEvento()
-      for (let intento = 0; intento < 8; intento++) {
-        const { data: ins, error: err } = await supabase
-          .from('eventos')
-          .insert({
-            organizacion_id: orgId,
-            nombre,
-            descripcion: null,
-            fecha,
-            estado: 'borrador',
-            codigo_acceso: codigo,
-            puestos_a_premiar: puestos === 2 ? 2 : 3,
-            plantilla_criterios_id: null,
-          })
-          .select(
-            'id, organizacion_id, nombre, descripcion, fecha, estado, codigo_acceso, puestos_a_premiar',
-          )
-          .single()
-        if (!err && ins) {
-          setEvento(ins as Evento)
-          await registrarAuditoria({
-            organizacionId: orgId,
-            eventoId: ins.id,
-            usuarioId: perfil.id,
-            accion: 'evento_creado',
-            detalle: { nombre },
-          })
-          return
-        }
-        if (err?.code === '23505') {
-          codigo = generarCodigoAccesoEvento()
-          continue
-        }
-        setError(err?.message ?? 'No se pudo crear el evento.')
-        return
-      }
-      setError('No se pudo generar un código de acceso único.')
-    } finally {
-      setCrearEventoBusy(false)
-    }
-  }
-
   if (!perfil) return null
+
+  if (!eventoId) {
+    return (
+      <SimplePanel>
+        <p className="text-muted-foreground">Identificador de evento no válido.</p>
+        <Button variant="link" className="mt-2 h-auto p-0" asChild>
+          <Link to="/admin">Volver al inicio</Link>
+        </Button>
+      </SimplePanel>
+    )
+  }
 
   if (loading) {
     return (
@@ -162,53 +120,26 @@ export function AdminEventoPage() {
   if (!evento) {
     return (
       <SimplePanel>
-        <h2 className="text-lg font-semibold text-slate-900">Crear evento</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Aún no hay un evento en tu organización. Crea uno en estado borrador para configurarlo.
+        <h2 className="text-lg font-semibold text-foreground">Evento no encontrado</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          No existe un evento con ese identificador en tu organización, o fue eliminado.
         </p>
         {error && (
-          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+          <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
             {error}
           </div>
         )}
-        <form className="mt-6 max-w-md space-y-4" onSubmit={(e) => void crearEventoInicial(e)}>
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Nombre del evento</label>
-            <input
-              name="nombre"
-              required
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Fecha</label>
-            <input
-              name="fecha"
-              type="date"
-              required
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Puestos a premiar</label>
-            <select
-              name="puestos"
-              defaultValue={3}
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
-            >
-              <option value={2}>2 (1° y 2°)</option>
-              <option value={3}>3 (podio completo)</option>
-            </select>
-          </div>
-          <button
-            type="submit"
-            disabled={crearEventoBusy}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
-          >
-            {crearEventoBusy ? <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden /> : null}
-            {crearEventoBusy ? 'Creando…' : 'Crear borrador'}
-          </button>
-        </form>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button variant="outline" asChild>
+            <Link to="/admin">Inicio</Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link to="/admin/evento">Ir al evento actual</Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link to="/admin/historial">Historial de eventos</Link>
+          </Button>
+        </div>
       </SimplePanel>
     )
   }
@@ -1259,7 +1190,20 @@ function SeccionEstado({
         .update({ estado: nuevo })
         .eq('id', evento.id)
       if (err) {
-        setError(err.message)
+        const code = (err as { code?: string }).code
+        const msg = (err.message ?? '').toLowerCase()
+        if (
+          code === '23505' ||
+          msg.includes('ux_evento_activo') ||
+          msg.includes('duplicate key') ||
+          msg.includes('unique constraint')
+        ) {
+          setError(
+            'Ya hay otro evento abierto o en calificación en tu organización. Cierra o finaliza ese evento antes de activar este.',
+          )
+        } else {
+          setError(err.message)
+        }
         return
       }
       await registrarAuditoria({

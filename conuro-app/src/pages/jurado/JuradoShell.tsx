@@ -15,12 +15,22 @@ export function JuradoShell() {
             'mx-auto flex max-w-lg flex-wrap items-center justify-between gap-3 px-4 py-3 sm:max-w-2xl',
           )}
         >
-          <div className="min-w-0 flex-1">
-            <Button variant="link" className="h-auto p-0 text-xs text-muted-foreground" asChild>
-              <Link to="/">Inicio</Link>
-            </Button>
-            <p className="truncate text-sm font-medium text-foreground">{session.eventoNombre}</p>
-            <p className="text-xs text-muted-foreground">Jurado: {session.nombreCompleto}</p>
+          <div className="flex min-w-0 flex-1 items-start gap-2">
+            {session.logoUrl ? (
+              <img
+                src={session.logoUrl}
+                alt=""
+                className="mt-5 size-9 shrink-0 rounded object-contain sm:mt-6"
+                aria-hidden
+              />
+            ) : null}
+            <div className="min-w-0 flex-1">
+              <Button variant="link" className="h-auto p-0 text-xs text-muted-foreground" asChild>
+                <Link to="/">Inicio</Link>
+              </Button>
+              <p className="truncate text-sm font-medium text-foreground">{session.eventoNombre}</p>
+              <p className="text-xs text-muted-foreground">Jurado: {session.nombreCompleto}</p>
+            </div>
           </div>
           <Button type="button" variant="outline" size="sm" onClick={() => clearSession()}>
             Salir

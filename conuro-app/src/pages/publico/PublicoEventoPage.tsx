@@ -21,6 +21,7 @@ type EventoHeader = {
   codigo_acceso: string
   org_nombre: string
   logo_url: string | null
+  sonido_revelacion_activo?: boolean
 }
 
 type ProgresoFila = {
@@ -185,7 +186,11 @@ export function PublicoEventoPage() {
     const list = (pub ?? []) as Publicado[]
     setPublicados(list)
 
-    if (list.length > prevPubCount.current && prevPubCount.current > 0) {
+    if (
+      list.length > prevPubCount.current &&
+      prevPubCount.current > 0 &&
+      row.sonido_revelacion_activo !== false
+    ) {
       playRevealChime()
     }
     prevPubCount.current = list.length

@@ -9,11 +9,12 @@ function readStored(): JuradoSession | null {
     if (!raw) return null
     const parsed = JSON.parse(raw) as JuradoSession
     if (
-      parsed?.eventoId &&
-      parsed?.juradoId &&
-      parsed?.nombreCompleto &&
-      parsed?.codigoAcceso &&
-      parsed?.tokenSesion
+      parsed &&
+      parsed.eventoId &&
+      parsed.juradoId &&
+      parsed.nombreCompleto &&
+      parsed.codigoAcceso &&
+      parsed.tokenSesion
     ) {
       return parsed
     }
