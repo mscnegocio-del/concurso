@@ -12,6 +12,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
+import { cn } from '@/lib/utils'
 
 function SidebarNav({
   title,
@@ -72,6 +73,8 @@ export function PanelLayout({
   logoutLabel = 'Cerrar sesión',
   children,
   subNav,
+  /** Barra fija inferior en &lt;lg (reemplaza el menú hamburguesa). */
+  mobileBottomNav,
   brandingLogoUrl,
   brandingAlt,
 }: {
@@ -80,6 +83,7 @@ export function PanelLayout({
   logoutLabel?: string
   children?: ReactNode
   subNav?: ReactNode
+  mobileBottomNav?: ReactNode
   /** Logo institucional (URL pública de Storage o externa). */
   brandingLogoUrl?: string | null
   /** Texto alternativo del logo (nombre de la organización). */
@@ -87,9 +91,10 @@ export function PanelLayout({
 }) {
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const useMobileBottomNav = Boolean(mobileBottomNav)
+  const showMobileSheet = !useMobileBottomNav
 
   useEffect(() => {
-    // Cerrar menú móvil al cambiar de ruta (equivalente a desmontar el sheet).
     queueMicrotask(() => setMobileOpen(false))
   }, [location.pathname])
 
@@ -108,26 +113,28 @@ export function PanelLayout({
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center gap-3 border-b bg-background px-4 py-3 lg:hidden">
-          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-            <SheetTrigger asChild>
-              <Button type="button" variant="outline" size="icon" aria-label="Abrir menú">
-                <Menu className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-72 p-0">
-              <SheetHeader className="sr-only">
-                <SheetTitle>Menú</SheetTitle>
-              </SheetHeader>
-              <SidebarNav
-                title={title}
-                subNav={subNav}
-                logoutLabel={logoutLabel}
-                onLogout={onLogout}
-                brandingLogoUrl={brandingLogoUrl}
-                brandingAlt={brandingAlt}
-              />
-            </SheetContent>
-          </Sheet>
+          {showMobileSheet ? (
+            <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+              <SheetTrigger asChild>
+                <Button type="button" variant="outline" size="icon" aria-label="Abrir menú">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-72 p-0">
+                <SheetHeader className="sr-only">
+                  <SheetTitle>Menú</SheetTitle>
+                </SheetHeader>
+                <SidebarNav
+                  title={title}
+                  subNav={subNav}
+                  logoutLabel={logoutLabel}
+                  onLogout={onLogout}
+                  brandingLogoUrl={brandingLogoUrl}
+                  brandingAlt={brandingAlt}
+                />
+              </SheetContent>
+            </Sheet>
+          ) : null}
           {brandingLogoUrl ? (
             <img
               src={brandingLogoUrl}
@@ -139,9 +146,19 @@ export function PanelLayout({
           <h1 className="min-w-0 truncate text-base font-semibold text-foreground">{title}</h1>
         </header>
 
-        <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 lg:px-8 lg:py-8">
+        <main
+          className={cn(
+            'mx-auto w-full max-w-5xl flex-1 px-4 py-6 lg:px-8 lg:py-8',
+            useMobileBottomNav &&
+              'max-lg:pb-[calc(5rem+env(safe-area-inset-bottom,0px))]',
+          )}
+        >
           {children ?? <Outlet />}
         </main>
+
+        {useMobileBottomNav ? (
+          <div className="fixed inset-x-0 bottom-0 z-50 lg:hidden">{mobileBottomNav}</div>
+        ) : null}
       </div>
     </div>
   )
