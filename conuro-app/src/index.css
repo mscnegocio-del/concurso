@@ -138,6 +138,71 @@
   }
 }
 
+/* Pantalla pública: temas TV (variables; --publico-accent-override opcional inline) */
+.publico-root[data-publico-theme='oscuro'] {
+  --publico-accent-default: #f59e0b;
+  --publico-bg-a: #020617;
+  --publico-bg-b: #0f172a;
+  --publico-text: #f8fafc;
+  --publico-text-heading: #f8fafc;
+  --publico-text-muted: #94a3b8;
+  --publico-card-border: rgb(30 41 59);
+  --publico-card-bg: rgb(15 23 42 / 0.5);
+  --publico-track: #1e293b;
+  --publico-track-inner: #475569;
+  --publico-placeholder-bg: #1e293b;
+  --publico-placeholder-text: #64748b;
+  --publico-podio-card: rgb(30 41 59 / 0.8);
+  --publico-podio-border: rgb(51 65 85);
+  --publico-podio-base: #334155;
+  --publico-badge-border: rgb(245 158 11 / 0.4);
+  --publico-badge-bg: rgb(245 158 11 / 0.1);
+  --publico-badge-title: #fde68a;
+  --publico-badge-sub: rgb(254 243 199 / 0.9);
+  --publico-waiting-text: rgb(254 243 199 / 0.95);
+}
+
+.publico-root[data-publico-theme='claro'] {
+  --publico-accent-default: #2563eb;
+  --publico-bg-a: #f8fafc;
+  --publico-bg-b: #e2e8f0;
+  --publico-text: #0f172a;
+  --publico-text-heading: #020617;
+  --publico-text-muted: #475569;
+  --publico-card-border: #cbd5e1;
+  --publico-card-bg: rgb(255 255 255 / 0.75);
+  --publico-track: #e2e8f0;
+  --publico-track-inner: #94a3b8;
+  --publico-placeholder-bg: #e2e8f0;
+  --publico-placeholder-text: #64748b;
+  --publico-podio-card: rgb(255 255 255 / 0.92);
+  --publico-podio-border: #cbd5e1;
+  --publico-podio-base: #cbd5e1;
+  --publico-badge-border: rgb(37 99 235 / 0.45);
+  --publico-badge-bg: rgb(37 99 235 / 0.08);
+  --publico-badge-title: #1d4ed8;
+  --publico-badge-sub: #1e40af;
+  --publico-waiting-text: #92400e;
+}
+
+.publico-root {
+  --publico-accent: var(--publico-accent-override, var(--publico-accent-default));
+  background: linear-gradient(to bottom, var(--publico-bg-a), var(--publico-bg-b), var(--publico-bg-a));
+  color: var(--publico-text);
+}
+
+.publico-progress-fill-global {
+  background: linear-gradient(
+    90deg,
+    var(--publico-accent),
+    color-mix(in srgb, var(--publico-accent) 55%, white)
+  );
+}
+
+.publico-categoria-nombre-acento {
+  color: color-mix(in srgb, var(--publico-accent) 82%, var(--publico-text));
+}
+
 /* Televisor / proyector: tipografía base fluida (ancho + alto de viewport) */
 .publico-display {
   font-size: clamp(1rem, 0.92rem + 1.1vmin, 1.3125rem);
@@ -178,11 +243,11 @@
 @keyframes publico-podium-first-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgb(251 191 36 / 0.25);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--publico-accent) 35%, transparent);
   }
 
   50% {
-    box-shadow: 0 0 0 10px rgb(251 191 36 / 0);
+    box-shadow: 0 0 0 10px transparent;
   }
 }
 

@@ -6,15 +6,19 @@ type Props = {
   className?: string
   /** Estilo para fondos oscuros (pantalla pública). */
   darkSurface?: boolean
+  /** Pantalla pública tema claro: contraste sobre fondo claro. */
+  publicoLight?: boolean
 }
 
-export function ConuroMarketingCta({ utmMedium, className, darkSurface }: Props) {
+export function ConuroMarketingCta({ utmMedium, className, darkSurface, publicoLight }: Props) {
   const href = buildMarketingLink({ utm_medium: utmMedium })
   return (
     <p
       className={cn(
         'text-pretty text-xs leading-snug',
-        darkSurface ? 'text-slate-500' : 'text-muted-foreground',
+        publicoLight && 'text-slate-600',
+        darkSurface && !publicoLight && 'text-slate-500',
+        !darkSurface && !publicoLight && 'text-muted-foreground',
         className,
       )}
     >
@@ -25,7 +29,9 @@ export function ConuroMarketingCta({ utmMedium, className, darkSurface }: Props)
         rel="noopener noreferrer"
         className={cn(
           'font-medium underline-offset-2 hover:underline',
-          darkSurface ? 'text-slate-300 hover:text-white' : 'text-primary',
+          publicoLight && 'text-blue-800 hover:text-blue-950',
+          darkSurface && !publicoLight && 'text-slate-300 hover:text-white',
+          !darkSurface && !publicoLight && 'text-primary',
         )}
       >
         Conuro es gratuito para empezar

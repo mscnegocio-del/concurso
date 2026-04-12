@@ -9,6 +9,8 @@ import { puedeAgregarJurado } from '@/lib/planes'
 import { SimplePanel } from '@/components/layouts/PanelLayout'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   AlertDialog,
@@ -22,6 +24,13 @@ import {
 } from '@/components/ui/alert-dialog'
 import { setStoredEventoFoco } from '@/lib/admin-evento-foco'
 import { copyText } from '@/lib/clipboard'
+import {
+  defaultAccentForPlantilla,
+  normalizeAccentHex,
+  normalizePlantillaPublica,
+  type PlantillaPublica,
+  PUBLICO_ACCENT_PRESETS,
+} from '@/lib/publico-theme'
 import { supabase } from '@/lib/supabase'
 
 type EstadoEvento =
@@ -40,6 +49,8 @@ type Evento = {
   estado: EstadoEvento
   codigo_acceso: string
   puestos_a_premiar: number
+  plantilla_publica: string
+  color_accento_hex: string | null
 }
 
 export function AdminEventoPage() {
@@ -63,7 +74,7 @@ export function AdminEventoPage() {
     const { data, error: e } = await supabase
       .from('eventos')
       .select(
-        'id, organizacion_id, nombre, descripcion, fecha, estado, codigo_acceso, puestos_a_premiar',
+        'id, organizacion_id, nombre, descripcion, fecha, estado, codigo_acceso, puestos_a_premiar, plantilla_publica, color_accento_hex',
       )
       .eq('id', eventoId)
       .eq('organizacion_id', orgId)
@@ -155,6 +166,12 @@ export function AdminEventoPage() {
         </Alert>
       )}
       <EventoCabecera evento={evento} onReload={() => void cargar()} setError={setError} />
+      <SeccionPantallaPublica
+        evento={evento}
+        usuarioId={perfil.id}
+        onSaved={() => void cargar()}
+        setError={setError}
+      />
       <SeccionCategorias eventoId={evento.id} estado={evento.estado} onChanged={despuesDeCambioCategorias} />
       <SeccionCriterios eventoId={evento.id} estado={evento.estado} onChanged={cargar} />
       <SeccionParticipantes
@@ -286,6 +303,174 @@ function EventoCabecera({
           </div>
         </form>
       )}
+    </SimplePanel>
+  )
+}
+
+function SeccionPantallaPublica({
+  evento,
+  usuarioId,
+  onSaved,
+  setError,
+}: {
+  evento: Evento
+  usuarioId: string
+  onSaved: () => void
+  setError: (s: string | null) => void
+}) {
+  const puedeEditarTv =
+    evento.estado === 'borrador' || evento.estado === 'abierto' || evento.estado === 'calificando'
+  const [plantilla, setPlantilla] = useState<PlantillaPublica>(() =>
+    normalizePlantillaPublica(evento.plantilla_publica),
+  )
+  const [hexInput, setHexInput] = useState(evento.color_accento_hex ?? '')
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    setPlantilla(normalizePlantillaPublica(evento.plantilla_publica))
+    setHexInput(evento.color_accento_hex ?? '')
+  }, [evento.id, evento.plantilla_publica, evento.color_accento_hex])
+
+  const appOrigin = typeof window !== 'undefined' ? window.location.origin : ''
+  const urlPublica = `${appOrigin}/publico/${evento.codigo_acceso}`
+
+  async function copiarUrl() {
+    const ok = await copyText(urlPublica)
+    if (ok) toast.success('URL copiada')
+    else toast.error('No se pudo copiar')
+  }
+
+  async function guardarTv() {
+    setError(null)
+    const trimmed = hexInput.trim()
+    const accentToSave = trimmed === '' ? null : normalizeAccentHex(trimmed)
+    if (trimmed !== '' && !accentToSave) {
+      setError('Color de acento: usa formato #RRGGBB (ej. #2563EB) o elige un preset.')
+      return
+    }
+    setBusy(true)
+    try {
+      const { error: err } = await supabase
+        .from('eventos')
+        .update({
+          plantilla_publica: plantilla,
+          color_accento_hex: accentToSave,
+        })
+        .eq('id', evento.id)
+      if (err) {
+        setError(err.message)
+        return
+      }
+      await registrarAuditoria({
+        organizacionId: evento.organizacion_id,
+        eventoId: evento.id,
+        usuarioId,
+        accion: 'evento_pantalla_publica',
+        detalle: { plantilla_publica: plantilla, color_accento_hex: accentToSave },
+      })
+      toast.success('Pantalla pública actualizada')
+      onSaved()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const pickerValue =
+    normalizeAccentHex(hexInput) ?? defaultAccentForPlantilla(plantilla).toLowerCase()
+
+  return (
+    <SimplePanel>
+      <h3 className="text-lg font-semibold text-foreground">Pantalla pública (TV)</h3>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Plantilla y color de acento para el proyector. El acento ayuda a armonizar con el logo de la organización
+        (elige un tono similar al de la marca).
+      </p>
+      <p className="mt-2 break-all text-sm text-muted-foreground">
+        URL:{' '}
+        <a href={urlPublica} className="font-mono text-primary underline" target="_blank" rel="noreferrer">
+          {urlPublica}
+        </a>
+        <Button type="button" variant="ghost" size="sm" className="ml-2 h-8" onClick={() => void copiarUrl()}>
+          Copiar
+        </Button>
+      </p>
+      <div className="mt-4 space-y-3">
+        <div className="space-y-2">
+          <Label htmlFor="tv-plantilla">Plantilla</Label>
+          <select
+            id="tv-plantilla"
+            value={plantilla}
+            disabled={!puedeEditarTv}
+            onChange={(e) => setPlantilla(normalizePlantillaPublica(e.target.value))}
+            className="border-input bg-background flex h-10 w-full max-w-xs rounded-md border px-3 py-2 text-sm"
+          >
+            <option value="oscuro">Oscuro (por defecto)</option>
+            <option value="claro">Claro</option>
+          </select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="tv-hex">Color de acento (opcional)</Label>
+          <div className="flex flex-wrap items-center gap-3">
+            <input
+              type="color"
+              aria-label="Selector de color"
+              disabled={!puedeEditarTv}
+              value={pickerValue}
+              onChange={(e) => setHexInput(e.target.value.toUpperCase())}
+              className="h-10 w-14 cursor-pointer rounded border border-border bg-background disabled:opacity-50"
+            />
+            <Input
+              id="tv-hex"
+              placeholder="#2563EB"
+              className="max-w-[9rem] font-mono uppercase"
+              disabled={!puedeEditarTv}
+              value={hexInput}
+              onChange={(e) => setHexInput(e.target.value)}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!puedeEditarTv}
+              onClick={() => setHexInput('')}
+            >
+              Quitar (default del tema)
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">Presets:</p>
+          <div className="flex flex-wrap gap-2">
+            {PUBLICO_ACCENT_PRESETS.map((p) => (
+              <Button
+                key={p.hex}
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={!puedeEditarTv}
+                className="gap-2"
+                onClick={() => setHexInput(p.hex)}
+              >
+                <span className="size-3 rounded-sm border border-border" style={{ backgroundColor: p.hex }} />
+                {p.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+      </div>
+      {!puedeEditarTv && (
+        <p className="mt-3 text-sm text-amber-800 dark:text-amber-200">
+          El evento está cerrado o publicado; la plantilla TV no se puede editar desde aquí.
+        </p>
+      )}
+      <Button type="button" className="mt-4" disabled={!puedeEditarTv || busy} onClick={() => void guardarTv()}>
+        {busy ? (
+          <>
+            <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+            Guardando…
+          </>
+        ) : (
+          'Guardar pantalla pública'
+        )}
+      </Button>
     </SimplePanel>
   )
 }

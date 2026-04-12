@@ -5,10 +5,12 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type ReactNode,
 } from 'react'
 import { useParams } from 'react-router-dom'
 import { ConuroMarketingCta } from '@/components/marketing/ConuroMarketingCta'
+import { normalizeAccentHex, normalizePlantillaPublica } from '@/lib/publico-theme'
 import { playRevealChime } from '@/lib/sound'
 import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
@@ -23,6 +25,8 @@ type EventoHeader = {
   org_nombre: string
   logo_url: string | null
   sonido_revelacion_activo?: boolean
+  plantilla_publica?: string
+  color_accento_hex?: string | null
 }
 
 type ProgresoFila = {
@@ -287,8 +291,18 @@ export function PublicoEventoPage() {
   /** En escritorio/TV: priorizar panel derecho si hay podio o categoría publicada sin filas aún. */
   const panelRevelacionPrioritario = hayPodioPublicado || publicadoSinPodio
 
+  const plantillaTv = normalizePlantillaPublica(header.plantilla_publica)
+  const accentOverride = normalizeAccentHex(header.color_accento_hex)
+  const accentStyle = accentOverride
+    ? ({ ['--publico-accent-override' as string]: accentOverride } as CSSProperties)
+    : undefined
+
   return (
-    <main className="fixed inset-0 z-10 flex h-[100dvh] max-h-[100dvh] w-screen flex-col overflow-hidden overscroll-none bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
+    <main
+      className="publico-root fixed inset-0 z-10 flex h-[100dvh] max-h-[100dvh] w-screen flex-col overflow-hidden overscroll-none"
+      data-publico-theme={plantillaTv}
+      style={accentStyle}
+    >
       <PublicoEscaladoViewport layoutRevision={layoutRevision}>
         <div className="publico-display flex min-h-[100dvh] w-full min-w-0 flex-col px-[clamp(1rem,3.5vw,2.75rem)] py-[clamp(0.75rem,2.5dvh,2.25rem)]">
           <header className="flex shrink-0 flex-col items-center gap-[clamp(0.75rem,2.5vmin,1.5rem)] text-center md:flex-row md:items-start md:justify-between md:text-left">
@@ -300,18 +314,18 @@ export function PublicoEventoPage() {
                 className="h-[clamp(3rem,10dvh,7.5rem)] w-auto max-w-[min(48vw,14rem)] object-contain"
               />
             ) : (
-              <div className="flex h-[clamp(3rem,10dvh,7.5rem)] w-[clamp(3rem,10dvh,7.5rem)] shrink-0 items-center justify-center rounded-2xl bg-slate-800 text-[clamp(1.25rem,4vmin,2rem)] font-bold text-slate-500">
+              <div className="flex h-[clamp(3rem,10dvh,7.5rem)] w-[clamp(3rem,10dvh,7.5rem)] shrink-0 items-center justify-center rounded-2xl bg-[var(--publico-placeholder-bg)] text-[clamp(1.25rem,4vmin,2rem)] font-bold text-[var(--publico-placeholder-text)]">
                 PJ
               </div>
             )}
             <div className="min-w-0">
-              <p className="text-[clamp(0.65rem,1.8vmin,0.9rem)] uppercase tracking-[0.35em] text-slate-400">
+              <p className="text-[clamp(0.65rem,1.8vmin,0.9rem)] uppercase tracking-[0.35em] text-[var(--publico-text-muted)]">
                 {header.org_nombre}
               </p>
-              <h1 className="mt-1 text-balance text-[clamp(1.35rem,4.2vmin,3.75rem)] font-bold leading-[1.1]">
+              <h1 className="mt-1 text-balance text-[clamp(1.35rem,4.2vmin,3.75rem)] font-bold leading-[1.1] text-[var(--publico-text-heading)]">
                 {header.nombre}
               </h1>
-              <p className="mt-1 text-[clamp(0.85rem,2.2vmin,1.15rem)] text-slate-400">
+              <p className="mt-1 text-[clamp(0.85rem,2.2vmin,1.15rem)] text-[var(--publico-text-muted)]">
                 {new Date(header.fecha).toLocaleDateString('es-PE', {
                   weekday: 'long',
                   year: 'numeric',
@@ -323,9 +337,11 @@ export function PublicoEventoPage() {
           </div>
           <div className="flex flex-col items-center gap-3 md:items-end">
           {finalizado && (
-            <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 px-6 py-3 text-center md:text-right">
-              <p className="text-xs font-semibold uppercase tracking-widest text-amber-200">Concurso finalizado</p>
-              <p className="mt-1 text-sm text-amber-100/90">Gracias por participar</p>
+            <div className="rounded-2xl border border-[color:var(--publico-badge-border)] bg-[var(--publico-badge-bg)] px-6 py-3 text-center md:text-right">
+              <p className="text-xs font-semibold uppercase tracking-widest text-[var(--publico-badge-title)]">
+                Concurso finalizado
+              </p>
+              <p className="mt-1 text-sm text-[var(--publico-badge-sub)]">Gracias por participar</p>
             </div>
           )}
           </div>
@@ -343,27 +359,29 @@ export function PublicoEventoPage() {
                 panelRevelacionPrioritario ? 'lg:[flex:1_1_0%]' : 'lg:[flex:4_1_0%]',
               )}
             >
-              <h2 className="text-[clamp(1.05rem,2.8vmin,1.5rem)] font-semibold text-slate-200">En curso</h2>
+              <h2 className="text-[clamp(1.05rem,2.8vmin,1.5rem)] font-semibold text-[var(--publico-text-heading)]">
+                En curso
+              </h2>
               <p
                 className={cn(
-                  'mt-1 text-[clamp(0.75rem,2vmin,0.95rem)] text-slate-400',
+                  'mt-1 text-[clamp(0.75rem,2vmin,0.95rem)] text-[var(--publico-text-muted)]',
                   hayPodioPublicado && 'lg:sr-only',
                 )}
               >
                 Avance por categoría. Las notas se darán a conocer al publicar cada resultado.
               </p>
               {hayPodioPublicado && (
-                <p className="mt-1 hidden text-[clamp(0.7rem,1.8vmin,0.85rem)] text-slate-400 lg:block">
+                <p className="mt-1 hidden text-[clamp(0.7rem,1.8vmin,0.85rem)] text-[var(--publico-text-muted)] lg:block">
                   Progreso general del concurso.
                 </p>
               )}
-              <div className="mt-[clamp(0.75rem,2dvh,1.5rem)] h-[clamp(0.85rem,1.8dvh,1.35rem)] w-full overflow-hidden rounded-full bg-slate-800">
+              <div className="mt-[clamp(0.75rem,2dvh,1.5rem)] h-[clamp(0.85rem,1.8dvh,1.35rem)] w-full overflow-hidden rounded-full bg-[var(--publico-track)]">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-[width] duration-700"
+                  className="publico-progress-fill-global h-full rounded-full transition-[width] duration-700"
                   style={{ width: `${pctGlobal}%` }}
                 />
               </div>
-              <p className="mt-2 text-center text-[clamp(1.35rem,4vmin,2.25rem)] font-semibold text-slate-200">
+              <p className="mt-2 text-center text-[clamp(1.35rem,4vmin,2.25rem)] font-semibold text-[var(--publico-text-heading)]">
                 {pctGlobal}%
               </p>
 
@@ -378,15 +396,21 @@ export function PublicoEventoPage() {
                   const reg = Number(r.calificaciones_registradas)
                   const p = esp > 0 ? Math.min(100, Math.round((reg / esp) * 100)) : 0
                   return (
-                    <li key={r.categoria_id} className="rounded-xl border border-slate-800 bg-slate-900/50 px-4 py-3">
+                    <li
+                      key={r.categoria_id}
+                      className="rounded-xl border border-[color:var(--publico-card-border)] bg-[var(--publico-card-bg)] px-4 py-3"
+                    >
                       <div className="flex justify-between gap-4 text-sm md:text-base">
-                        <span className="font-medium text-slate-200">{r.categoria_nombre}</span>
-                        <span className="text-slate-400">
+                        <span className="font-medium text-[var(--publico-text-heading)]">{r.categoria_nombre}</span>
+                        <span className="text-[var(--publico-text-muted)]">
                           {reg}/{esp}
                         </span>
                       </div>
-                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-800">
-                        <div className="h-full rounded-full bg-slate-600" style={{ width: `${p}%` }} />
+                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--publico-track)]">
+                        <div
+                          className="h-full rounded-full bg-[var(--publico-track-inner)]"
+                          style={{ width: `${p}%` }}
+                        />
                       </div>
                     </li>
                   )
@@ -401,26 +425,28 @@ export function PublicoEventoPage() {
                 panelRevelacionPrioritario ? 'lg:[flex:4_1_0%]' : 'lg:[flex:1_1_0%]',
               )}
             >
-              <h2 className="text-[clamp(1.05rem,2.8vmin,1.5rem)] font-semibold text-slate-200">Última revelación</h2>
+              <h2 className="text-[clamp(1.05rem,2.8vmin,1.5rem)] font-semibold text-[var(--publico-text-heading)]">
+                Última revelación
+              </h2>
               {nombreUltimaCategoria && (
-                <p className="mt-2 text-[clamp(1rem,2.8vmin,1.35rem)] font-medium text-indigo-200">
+                <p className="publico-categoria-nombre-acento mt-2 text-[clamp(1rem,2.8vmin,1.35rem)] font-medium">
                   {nombreUltimaCategoria}
                 </p>
               )}
               {(hayPodioPublicado || publicadoSinPodio) && (
-                <p className="mt-1 text-[clamp(0.75rem,2vmin,0.95rem)] text-slate-400">
+                <p className="mt-1 text-[clamp(0.75rem,2vmin,0.95rem)] text-[var(--publico-text-muted)]">
                   Puntajes visibles solo para categorías ya publicadas.
                 </p>
               )}
 
               {publicadoSinPodio ? (
-                <p className="mt-8 text-balance text-center text-[clamp(1rem,2.8vmin,1.35rem)] leading-relaxed text-amber-100/95">
+                <p className="mt-8 text-balance text-center text-[clamp(1rem,2.8vmin,1.35rem)] leading-relaxed text-[var(--publico-waiting-text)]">
                   {nombreUltimaCategoria
                     ? `Estamos preparando la tabla de resultados de «${nombreUltimaCategoria}». En breve debería aparecer el podio en esta pantalla.`
                     : 'Estamos preparando la tabla de resultados. En breve debería aparecer el podio en esta pantalla.'}
                 </p>
               ) : podio.length === 0 ? (
-                <p className="mt-8 text-balance text-center text-[clamp(1rem,2.8vmin,1.25rem)] leading-relaxed text-slate-400">
+                <p className="mt-8 text-balance text-center text-[clamp(1rem,2.8vmin,1.25rem)] leading-relaxed text-[var(--publico-text-muted)]">
                   Aún no hay resultados publicados. Esta pantalla se actualizará sola; mantenla a la vista del
                   público.
                 </p>
@@ -441,7 +467,8 @@ export function PublicoEventoPage() {
           <footer className="mt-auto shrink-0 pt-[clamp(0.35rem,1dvh,0.75rem)] opacity-[0.72]">
             <ConuroMarketingCta
               utmMedium="publico_tv"
-              darkSurface
+              darkSurface={plantillaTv === 'oscuro'}
+              publicoLight={plantillaTv === 'claro'}
               className="text-center text-[clamp(0.55rem,1.35vmin,0.72rem)] leading-tight"
             />
           </footer>
@@ -490,7 +517,7 @@ function PodioNombreProyector({ nombre, destacado }: { nombre: string; destacado
       <div
         ref={innerRef}
         className={cn(
-          'px-0.5 text-center text-[clamp(0.8rem,2.2vmin,1.15rem)] font-semibold leading-tight text-pretty break-words text-white',
+          'px-0.5 text-center text-[clamp(0.8rem,2.2vmin,1.15rem)] font-semibold leading-tight text-pretty break-words text-[var(--publico-text-heading)]',
           necesitaScroll
             ? 'publico-podium-name-scroll absolute inset-x-0 top-0'
             : 'absolute inset-x-0 top-1/2 -translate-y-1/2',
@@ -531,30 +558,32 @@ function PodioSlot({
     >
       <div
         className={cn(
-          'flex w-full flex-col items-center justify-end rounded-t-2xl border bg-slate-800/80 px-[clamp(0.5rem,1.8vmin,1rem)] pb-[clamp(1rem,2.5dvh,1.75rem)] pt-[clamp(1.25rem,3dvh,2.25rem)] text-center',
+          'flex w-full flex-col items-center justify-end rounded-t-2xl border bg-[var(--publico-podio-card)] px-[clamp(0.5rem,1.8vmin,1rem)] pb-[clamp(1rem,2.5dvh,1.75rem)] pt-[clamp(1.25rem,3dvh,2.25rem)] text-center',
           h,
           lugar === 1 && fila
-            ? 'publico-podium-first border-amber-500/45 ring-2 ring-amber-400/35'
-            : 'border-slate-700',
+            ? 'publico-podium-first border-[color:color-mix(in_srgb,var(--publico-accent)_45%,transparent)] ring-2 ring-[color:color-mix(in_srgb,var(--publico-accent)_35%,transparent)]'
+            : 'border-[color:var(--publico-podio-border)]',
         )}
       >
-        <span className="text-[clamp(1.75rem,5.5vmin,3.25rem)] font-black text-amber-300">{lugar}°</span>
+        <span className="text-[clamp(1.75rem,5.5vmin,3.25rem)] font-black text-[color:var(--publico-accent)]">
+          {lugar}°
+        </span>
         {fila ? (
           <>
             <PodioNombreProyector nombre={fila.nombre_completo} destacado={!!alto} />
-            <p className="mt-[clamp(0.5rem,1.5dvh,1rem)] text-[clamp(1.25rem,4vmin,2.5rem)] font-bold text-white">
+            <p className="mt-[clamp(0.5rem,1.5dvh,1rem)] text-[clamp(1.25rem,4vmin,2.5rem)] font-bold text-[var(--publico-text-heading)]">
               {fila.puntaje_final}
             </p>
-            <p className="text-[clamp(0.6rem,1.5vmin,0.75rem)] uppercase tracking-wider text-slate-400">
+            <p className="text-[clamp(0.6rem,1.5vmin,0.75rem)] uppercase tracking-wider text-[var(--publico-text-muted)]">
               puntos
             </p>
           </>
         ) : (
-          <p className="mt-6 text-slate-600">—</p>
+          <p className="mt-6 text-[var(--publico-placeholder-text)]">—</p>
         )}
       </div>
       <div
-        className={`w-full rounded-b-xl bg-slate-700 ${
+        className={`w-full rounded-b-xl bg-[var(--publico-podio-base)] ${
           lugar === 1
             ? 'h-[clamp(2.5rem,6dvh,6rem)]'
             : lugar === 2
