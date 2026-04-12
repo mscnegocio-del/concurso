@@ -37,7 +37,7 @@ export function HomePage() {
         <CardHeader>
           <CardTitle className="text-2xl">Sistema de Concurso</CardTitle>
           <CardDescription>
-            Calificación de concursos de dibujo y pintura. Elige cómo deseas ingresar.
+            Calificación con jurados, criterios y pantalla pública de resultados. Elige cómo deseas ingresar.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">

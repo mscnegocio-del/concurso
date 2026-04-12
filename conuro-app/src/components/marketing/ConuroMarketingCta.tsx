@@ -22,7 +22,7 @@ export function ConuroMarketingCta({ utmMedium, className, darkSurface, publicoL
         className,
       )}
     >
-      ¿Organizas concursos de dibujo o pintura?{' '}
+      ¿Organizas concursos o competencias con varios jurados?{' '}
       <a
         href={href}
         target="_blank"
