@@ -8,6 +8,7 @@ export type EventoFocoRow = {
   estado: string
   codigo_acceso: string
   puestos_a_premiar: number
+  modo_revelacion_podio?: 'simultaneo' | 'escalonado' | string
 }
 
 /**
@@ -30,7 +31,7 @@ export function useEventoFocoOrg(orgId: string | undefined) {
     if (targetId) {
       const { data: row } = await supabase
         .from('eventos')
-        .select('id, nombre, estado, codigo_acceso, puestos_a_premiar')
+        .select('id, nombre, estado, codigo_acceso, puestos_a_premiar, modo_revelacion_podio')
         .eq('id', targetId)
         .eq('organizacion_id', orgId)
         .maybeSingle()
@@ -42,7 +43,7 @@ export function useEventoFocoOrg(orgId: string | undefined) {
     }
     const { data: latest, error: e } = await supabase
       .from('eventos')
-      .select('id, nombre, estado, codigo_acceso, puestos_a_premiar')
+      .select('id, nombre, estado, codigo_acceso, puestos_a_premiar, modo_revelacion_podio')
       .eq('organizacion_id', orgId)
       .order('created_at', { ascending: false })
       .limit(1)

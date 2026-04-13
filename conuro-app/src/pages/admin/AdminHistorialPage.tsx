@@ -117,6 +117,9 @@ export function AdminHistorialPage() {
     const nombre = String(fd.get('nombre') ?? '').trim()
     const fecha = String(fd.get('fecha') ?? '')
     const puestos = Number(fd.get('puestos') ?? 3) === 2 ? 2 : 3
+    const modoRevelacionPodio = String(fd.get('modo_revelacion_podio') ?? 'simultaneo') === 'escalonado'
+      ? 'escalonado'
+      : 'simultaneo'
     const plantillaId = String(fd.get('plantilla_criterios_id') ?? '').trim()
     setCreateBusy(true)
     try {
@@ -125,6 +128,7 @@ export function AdminHistorialPage() {
         nombre,
         fecha,
         puestos,
+        modoRevelacionPodio,
       })
       if (errMsg || !data) {
         setError(errMsg ?? 'Error al crear.')
@@ -136,7 +140,11 @@ export function AdminHistorialPage() {
         eventoId: data.id,
         usuarioId: perfil.id,
         accion: 'evento_creado',
-        detalle: { nombre: data.nombre, plantilla_criterios_id: plantillaId || null },
+        detalle: {
+          nombre: data.nombre,
+          plantilla_criterios_id: plantillaId || null,
+          modo_revelacion_podio: modoRevelacionPodio,
+        },
       })
       if (plantillaId) {
         const { error: rpcErr } = await supabase.rpc('admin_aplicar_plantilla_criterios', {
@@ -209,6 +217,18 @@ export function AdminHistorialPage() {
                 >
                   <option value={2}>2</option>
                   <option value={3}>3</option>
+                </select>
+              </div>
+              <div className="w-full space-y-2 sm:w-44">
+                <Label htmlFor="hist-revelacion">Revelación</Label>
+                <select
+                  id="hist-revelacion"
+                  name="modo_revelacion_podio"
+                  defaultValue="simultaneo"
+                  className="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                >
+                  <option value="simultaneo">Mostrar podio completo</option>
+                  <option value="escalonado">Escalonada (3→2→1 / 2→1)</option>
                 </select>
               </div>
               <Button type="submit" disabled={createBusy} className="w-full sm:w-auto">

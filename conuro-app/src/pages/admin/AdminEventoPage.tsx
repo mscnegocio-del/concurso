@@ -49,6 +49,7 @@ type Evento = {
   estado: EstadoEvento
   codigo_acceso: string
   puestos_a_premiar: number
+  modo_revelacion_podio: 'simultaneo' | 'escalonado' | string
   plantilla_publica: string
   color_accento_hex: string | null
 }
@@ -74,7 +75,7 @@ export function AdminEventoPage() {
     const { data, error: e } = await supabase
       .from('eventos')
       .select(
-        'id, organizacion_id, nombre, descripcion, fecha, estado, codigo_acceso, puestos_a_premiar, plantilla_publica, color_accento_hex',
+        'id, organizacion_id, nombre, descripcion, fecha, estado, codigo_acceso, puestos_a_premiar, modo_revelacion_podio, plantilla_publica, color_accento_hex',
       )
       .eq('id', eventoId)
       .eq('organizacion_id', orgId)
@@ -333,11 +334,15 @@ function SeccionPantallaPublica({
   )
   const [hexInput, setHexInput] = useState(evento.color_accento_hex ?? '')
   const [busy, setBusy] = useState(false)
+  const [modoRevelacion, setModoRevelacion] = useState<'simultaneo' | 'escalonado'>(
+    evento.modo_revelacion_podio === 'escalonado' ? 'escalonado' : 'simultaneo',
+  )
 
   useEffect(() => {
     setPlantilla(normalizePlantillaPublica(evento.plantilla_publica))
     setHexInput(evento.color_accento_hex ?? '')
-  }, [evento.id, evento.plantilla_publica, evento.color_accento_hex])
+    setModoRevelacion(evento.modo_revelacion_podio === 'escalonado' ? 'escalonado' : 'simultaneo')
+  }, [evento.id, evento.plantilla_publica, evento.color_accento_hex, evento.modo_revelacion_podio])
 
   const appOrigin = typeof window !== 'undefined' ? window.location.origin : ''
   const urlPublica = `${appOrigin}/publico/${evento.codigo_acceso}`
@@ -361,6 +366,7 @@ function SeccionPantallaPublica({
       const { error: err } = await supabase
         .from('eventos')
         .update({
+          modo_revelacion_podio: modoRevelacion,
           plantilla_publica: plantilla,
           color_accento_hex: accentToSave,
         })
@@ -374,7 +380,11 @@ function SeccionPantallaPublica({
         eventoId: evento.id,
         usuarioId,
         accion: 'evento_pantalla_publica',
-        detalle: { plantilla_publica: plantilla, color_accento_hex: accentToSave },
+        detalle: {
+          modo_revelacion_podio: modoRevelacion,
+          plantilla_publica: plantilla,
+          color_accento_hex: accentToSave,
+        },
       })
       toast.success('Pantalla pública actualizada')
       onSaved()
@@ -403,6 +413,19 @@ function SeccionPantallaPublica({
         </Button>
       </p>
       <div className="mt-4 space-y-3">
+        <div className="space-y-2">
+          <Label htmlFor="tv-revelacion">Modo de revelación del podio</Label>
+          <select
+            id="tv-revelacion"
+            value={modoRevelacion}
+            disabled={!puedeEditarTv}
+            onChange={(e) => setModoRevelacion(e.target.value === 'escalonado' ? 'escalonado' : 'simultaneo')}
+            className="border-input bg-background flex h-10 w-full max-w-xs rounded-md border px-3 py-2 text-sm"
+          >
+            <option value="simultaneo">Mostrar puestos juntos</option>
+            <option value="escalonado">Revelación escalonada (3→2→1 / 2→1)</option>
+          </select>
+        </div>
         <div className="space-y-2">
           <Label htmlFor="tv-plantilla">Plantilla</Label>
           <select

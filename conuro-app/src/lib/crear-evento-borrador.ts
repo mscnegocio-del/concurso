@@ -19,6 +19,7 @@ export async function crearEventoBorrador(
     nombre: string
     fecha: string
     puestos: 2 | 3
+    modoRevelacionPodio?: 'simultaneo' | 'escalonado'
   },
 ): Promise<{ data: EventoBorradorRow | null; error: string | null }> {
   const nombre = params.nombre.trim()
@@ -38,6 +39,7 @@ export async function crearEventoBorrador(
         codigo_acceso: codigo,
         puestos_a_premiar: params.puestos,
         plantilla_criterios_id: null,
+        modo_revelacion_podio: params.modoRevelacionPodio ?? 'simultaneo',
       })
       .select(
         'id, organizacion_id, nombre, descripcion, fecha, estado, codigo_acceso, puestos_a_premiar',

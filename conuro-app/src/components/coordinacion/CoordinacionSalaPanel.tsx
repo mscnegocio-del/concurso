@@ -17,6 +17,7 @@ export type CoordinacionEvento = {
   estado: string
   codigo_acceso: string
   puestos_a_premiar: number
+  modo_revelacion_podio?: 'simultaneo' | 'escalonado' | string
 }
 
 type ProgresoFila = {
@@ -28,6 +29,8 @@ type ProgresoFila = {
   num_criterios: number
   calificaciones_registradas: number
   calificaciones_esperadas: number
+  publicado?: boolean
+  paso_revelacion?: number
 }
 
 type HistorialFila = {
@@ -35,6 +38,7 @@ type HistorialFila = {
   publicado_at: string
   publicado_por: string | null
   nombre_publicador: string
+  paso_revelacion?: number
 }
 
 type RankFila = {
@@ -115,6 +119,21 @@ export function CoordinacionSalaPanel({
     return esp > 0 && reg < esp
   }, [filaSeleccionada])
 
+  const modoRevelacion = (evento?.modo_revelacion_podio ?? 'simultaneo') === 'escalonado' ? 'escalonado' : 'simultaneo'
+  const maxPaso = evento?.puestos_a_premiar === 2 ? 2 : 3
+  const filaActivaEscalonada = useMemo(() => {
+    if (modoRevelacion !== 'escalonado') return null
+    return (
+      progreso.find((p) => {
+        const paso = Number(p.paso_revelacion ?? 0)
+        const publicado = Boolean(p.publicado)
+        return publicado && paso > 0 && paso < maxPaso
+      }) ?? null
+    )
+  }, [modoRevelacion, progreso, maxPaso])
+
+  const pasoSeleccionado = Number(filaSeleccionada?.paso_revelacion ?? 0)
+
   useEffect(() => {
     if (!evento?.id) return
     queueMicrotask(() => {
@@ -188,6 +207,13 @@ export function CoordinacionSalaPanel({
     setCatPreview('')
   }, [evento?.id])
 
+  useEffect(() => {
+    if (!filaActivaEscalonada) return
+    if (categoriaSeleccionada !== filaActivaEscalonada.categoria_id) {
+      setCatPreview(filaActivaEscalonada.categoria_id)
+    }
+  }, [filaActivaEscalonada, categoriaSeleccionada])
+
   const publicadosSet = useMemo(
     () => new Set(historial.map((h) => h.categoria_id)),
     [historial],
@@ -199,29 +225,45 @@ export function CoordinacionSalaPanel({
       setError('El evento debe estar activo (no en borrador) para publicar.')
       return
     }
+    if (
+      modoRevelacion === 'escalonado' &&
+      filaActivaEscalonada &&
+      filaActivaEscalonada.categoria_id !== categoriaSeleccionada
+    ) {
+      setError('Debes terminar la revelación de la categoría en progreso antes de cambiar.')
+      return
+    }
     setPubBusy(true)
     setError(null)
     try {
-      const { error: e } = await supabase.from('resultados_publicados').upsert(
-        {
-          evento_id: evento.id,
-          categoria_id: categoriaSeleccionada,
-          publicado_por: perfil.id,
-          publicado_at: new Date().toISOString(),
-        },
-        { onConflict: 'evento_id,categoria_id' },
-      )
+      const { data, error: e } = await supabase.rpc('coordinador_avanzar_revelacion_categoria', {
+        p_evento_id: evento.id,
+        p_categoria_id: categoriaSeleccionada,
+      })
       if (e) {
         setError(e.message)
         return
       }
+      const row = Array.isArray(data) ? data[0] : null
+      const paso = Number(row?.paso_revelacion ?? 0)
+      const completado = Boolean(row?.completado)
       await registrarAuditoria({
         organizacionId: orgId,
         eventoId: evento.id,
         usuarioId: perfil.id,
         accion: 'resultados_publicados',
-        detalle: { categoria_id: categoriaSeleccionada },
+        detalle: {
+          categoria_id: categoriaSeleccionada,
+          modo_revelacion_podio: modoRevelacion,
+          paso_revelacion: paso,
+          completado,
+        },
       })
+      if (modoRevelacion === 'escalonado') {
+        toast.success(completado ? 'Categoría completada en pantalla pública.' : `Avance de revelación: paso ${paso}.`)
+      } else {
+        toast.success('Categoría publicada en pantalla pública.')
+      }
       await cargarHistorial()
       await cargarProgreso()
     } finally {
@@ -269,6 +311,23 @@ export function CoordinacionSalaPanel({
   }
 
   const publicarDeshabilitado = evento.estado === 'borrador'
+  const selectorBloqueado =
+    modoRevelacion === 'escalonado' &&
+    !!filaActivaEscalonada &&
+    filaActivaEscalonada.categoria_id !== categoriaSeleccionada
+
+  const yaPublicadaSeleccion = publicadosSet.has(categoriaSeleccionada)
+  const revelacionCompletaSeleccion = yaPublicadaSeleccion && pasoSeleccionado >= maxPaso
+
+  const botonLabel = (() => {
+    if (modoRevelacion === 'simultaneo') {
+      return pubBusy ? 'Publicando…' : 'Publicar categoría en pantalla pública'
+    }
+    if (pubBusy) return 'Avanzando…'
+    if (!yaPublicadaSeleccion || pasoSeleccionado <= 0) return 'Iniciar revelación en pantalla'
+    if (revelacionCompletaSeleccion) return 'Revelación completa'
+    return 'Siguiente revelación'
+  })()
 
   return (
     <div className={cn('space-y-6', 'pb-24 lg:pb-6')}>
@@ -303,8 +362,16 @@ export function CoordinacionSalaPanel({
         <Alert>
           <AlertTitle>Evento {evento.estado}</AlertTitle>
           <AlertDescription>
-            La calificación terminó. Puedes seguir viendo URL y ranking; la publicación en TV puede estar limitada
-            según la política del concurso.
+            La calificación terminó. Puedes seguir publicando/revelando categorías pendientes en la pantalla pública.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {modoRevelacion === 'escalonado' && filaActivaEscalonada && (
+        <Alert>
+          <AlertTitle>Revelación en progreso</AlertTitle>
+          <AlertDescription>
+            Debes terminar la categoría <strong>{filaActivaEscalonada.categoria_nombre}</strong> antes de cambiar a otra.
           </AlertDescription>
         </Alert>
       )}
@@ -398,6 +465,9 @@ export function CoordinacionSalaPanel({
           Vista previa antes de publicar; el público solo ve el podio tras publicar la categoría. Los códigos de
           participante no se muestran aquí para alinear con la pantalla pública.
         </p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Modo de revelación: <strong>{modoRevelacion === 'escalonado' ? 'Escalonada' : 'Podio completo'}</strong>
+        </p>
         <div className="mt-4">
           <label className="text-sm text-muted-foreground" htmlFor="coord-cat">
             Categoría
@@ -406,6 +476,7 @@ export function CoordinacionSalaPanel({
             id="coord-cat"
             value={categoriaSeleccionada}
             onChange={(e) => setCatPreview(e.target.value)}
+            disabled={modoRevelacion === 'escalonado' && !!filaActivaEscalonada}
             className="border-input bg-background ring-offset-background focus-visible:ring-ring mt-1 flex h-10 w-full max-w-md rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
           >
             {progreso.map((r) => (
@@ -424,6 +495,11 @@ export function CoordinacionSalaPanel({
             </AlertDescription>
           </Alert>
         )}
+        {selectorBloqueado && (
+          <p className="mt-3 text-sm text-amber-700">
+            Completa la revelación de la categoría activa antes de cambiar.
+          </p>
+        )}
         <ol className="mt-4 list-decimal space-y-1 pl-5 text-sm">
           {ranking.map((x) => (
             <li key={x.participante_id}>
@@ -438,9 +514,18 @@ export function CoordinacionSalaPanel({
 
         <div className="mt-6 hidden lg:block">
           <PublicarBlock
-            disabled={pubBusy || !categoriaSeleccionada || publicarDeshabilitado}
+            disabled={
+              pubBusy ||
+              !categoriaSeleccionada ||
+              publicarDeshabilitado ||
+              (modoRevelacion === 'escalonado' && revelacionCompletaSeleccion)
+            }
             busy={pubBusy}
-            yaPublicada={publicadosSet.has(categoriaSeleccionada)}
+            yaPublicada={yaPublicadaSeleccion}
+            escalonada={modoRevelacion === 'escalonado'}
+            pasoActual={pasoSeleccionado}
+            pasoMax={maxPaso}
+            label={botonLabel}
             onClick={() => void publicarCategoria()}
           />
         </div>
@@ -481,9 +566,18 @@ export function CoordinacionSalaPanel({
         )}
       >
         <PublicarBlock
-          disabled={pubBusy || !categoriaSeleccionada || publicarDeshabilitado}
+          disabled={
+            pubBusy ||
+            !categoriaSeleccionada ||
+            publicarDeshabilitado ||
+            (modoRevelacion === 'escalonado' && revelacionCompletaSeleccion)
+          }
           busy={pubBusy}
-          yaPublicada={publicadosSet.has(categoriaSeleccionada)}
+          yaPublicada={yaPublicadaSeleccion}
+          escalonada={modoRevelacion === 'escalonado'}
+          pasoActual={pasoSeleccionado}
+          pasoMax={maxPaso}
+          label={botonLabel}
           onClick={() => void publicarCategoria()}
           className="w-full"
         />
@@ -496,30 +590,43 @@ function PublicarBlock({
   disabled,
   busy,
   yaPublicada,
+  escalonada,
+  pasoActual,
+  pasoMax,
+  label,
   onClick,
   className,
 }: {
   disabled: boolean
   busy: boolean
   yaPublicada: boolean
+  escalonada: boolean
+  pasoActual: number
+  pasoMax: number
+  label: string
   onClick: () => void
   className?: string
 }) {
   return (
     <div className={cn('space-y-2', className)}>
-      {yaPublicada && (
+      {yaPublicada && !escalonada && (
         <p className="text-sm text-amber-800 dark:text-amber-200">
           Esta categoría ya fue publicada; puedes volver a guardar para actualizar la hora en pantalla.
+        </p>
+      )}
+      {escalonada && yaPublicada && (
+        <p className="text-sm text-amber-800 dark:text-amber-200">
+          Revelación: paso {Math.min(pasoActual, pasoMax)}/{pasoMax}
         </p>
       )}
       <Button type="button" size="lg" className="w-full sm:w-auto" disabled={disabled} onClick={onClick}>
         {busy ? (
           <>
             <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
-            Publicando…
+            {label}
           </>
         ) : (
-          'Publicar categoría en pantalla pública'
+          label
         )}
       </Button>
     </div>

@@ -29,6 +29,7 @@ type EventoHeader = {
   sonido_revelacion_activo?: boolean
   plantilla_publica?: string
   color_accento_hex?: string | null
+  modo_revelacion_podio?: 'simultaneo' | 'escalonado' | string
 }
 
 type ProgresoFila = {
@@ -42,7 +43,7 @@ type ProgresoFila = {
   calificaciones_esperadas: number
 }
 
-type Publicado = { categoria_id: string; publicado_at: string }
+type Publicado = { categoria_id: string; publicado_at: string; paso_revelacion?: number }
 
 type PodioFila = {
   puesto: number
@@ -294,6 +295,7 @@ export function PublicoEventoPage() {
   const panelRevelacionPrioritario = hayPodioPublicado || publicadoSinPodio
 
   const plantillaTv = normalizePlantillaPublica(header.plantilla_publica)
+  const modoRevelacion = header.modo_revelacion_podio === 'escalonado' ? 'escalonado' : 'simultaneo'
   const accentOverride = normalizeAccentHex(header.color_accento_hex)
   const accentStyle = accentOverride
     ? ({ ['--publico-accent-override' as string]: accentOverride } as CSSProperties)
@@ -449,7 +451,12 @@ export function PublicoEventoPage() {
               </h2>
               {nombreUltimaCategoria && (
                 <p className="publico-categoria-nombre-acento mt-2 text-[clamp(1rem,2.8vmin,1.35rem)] font-medium">
-                  {nombreUltimaCategoria}
+                  Categoría: {nombreUltimaCategoria}
+                </p>
+              )}
+              {modoRevelacion === 'escalonado' && (
+                <p className="mt-1 text-[clamp(0.7rem,1.8vmin,0.85rem)] text-[var(--publico-text-muted)]">
+                  Revelación escalonada en curso
                 </p>
               )}
               {(hayPodioPublicado || publicadoSinPodio) && (
@@ -543,7 +550,7 @@ function PodioNombreProyector({ nombre, destacado }: { nombre: string; destacado
         )}
         style={
           necesitaScroll
-            ? ({ '--publico-podium-dy': `-${excesoPx}px` } as React.CSSProperties)
+            ? ({ '--publico-podium-dy': `-${excesoPx}px` } as CSSProperties)
             : undefined
         }
       >
