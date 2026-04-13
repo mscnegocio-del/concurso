@@ -473,11 +473,12 @@ export function CoordinacionSalaPanel({
         {historial.length === 0 && <p className="text-sm text-muted-foreground">Ninguna categoría publicada aún.</p>}
       </SimplePanel>
 
+      {/* Por encima del contenido pero debajo del nav móvil del shell (z-50). bottom alineado al padding del main (5rem+safe) para no quedar tapado. */}
       <div
         className={cn(
-          'fixed right-0 bottom-0 left-0 z-40 border-t border-border bg-background/95 p-3 backdrop-blur-sm lg:hidden',
+          'fixed right-0 left-0 z-40 border-t border-border bg-background/95 p-3 backdrop-blur-sm lg:hidden',
+          'bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] shadow-[0_-4px_24px_rgba(0,0,0,0.08)]',
         )}
-        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
       >
         <PublicarBlock
           disabled={pubBusy || !categoriaSeleccionada || publicarDeshabilitado}
