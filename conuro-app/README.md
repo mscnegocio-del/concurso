@@ -1,4 +1,4 @@
-# Conuro — App web (concurso de dibujo y pintura)
+# Conuro — App web de concursos con jurados
 
 Frontend del sistema multi-tenant descrito en el [`CLAUDE.md`](../CLAUDE.md) del repositorio raíz.
 
@@ -41,9 +41,21 @@ Abre la URL que indique la terminal (normalmente [http://localhost:5173](http://
 - `/login` — Admin, Administrador, Super Admin (OTP correo)
 - `/admin/evento` — Configuración del evento más reciente
 - `/admin/historial` — Lista de eventos y clonado
+- `/admin/plantillas-criterios` — CRUD de plantillas de criterios
 - `/super` — Organizaciones (solo `super_admin`)
 - `/jurado` — Acceso jurado (código de evento + nombre)
 - `/publico/<CODIGO>` — Pantalla pública (`CODIGO` = `codigo_acceso` de 6 caracteres)
+
+## Funcionalidades clave actuales
+
+- Configuración completa de evento (categorías, criterios, participantes, jurados).
+- Aplicación de plantillas de criterios a eventos en borrador.
+- Importar jurados desde otro evento de la misma organización.
+- Pantalla pública con:
+  - tema claro/oscuro y color de acento,
+  - revelación de podio `simultaneo` o `escalonado`,
+  - actualización autónoma por RPC + polling/realtime.
+- Panel de coordinación compartido para `admin` y `administrador`.
 
 ## Documentación de negocio y arquitectura
 

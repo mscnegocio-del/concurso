@@ -12,6 +12,25 @@ Este documento traduce `plan_implementacion.md` en sprints con tareas operativas
 
 ---
 
+## Actualización ejecutiva (Abr 2026)
+
+### Estado funcional consolidado
+
+- Flujo core completo: Admin configura, Jurado califica, Administrador/Admin publica, Público visualiza.
+- Módulos añadidos luego del MVP inicial:
+  - Plantillas de criterios (`/admin/plantillas-criterios` + aplicación en eventos).
+  - Reutilización de jurados vía importación desde evento origen.
+  - Pantalla pública tematizable (oscuro/claro + acento).
+  - Revelación de podio por evento: `simultaneo` o `escalonado` (`3→2→1`, `2→1`), con bloqueo de categoría activa en coordinación.
+
+### Hallazgos / warnings técnicos a monitorear
+
+- Warning de bundle size en `npm run build` (no bloqueante).
+- Webhook Lemon pendiente de endurecimiento productivo (firma y sincronización de plan).
+- Falta cerrar checklist de UAT integral en evento real (incluyendo casos de revelación escalonada con evento en estado `cerrado`).
+
+---
+
 ## Sprint 1 — Fundación técnica (Setup + DB base)
 
 **Objetivo:** dejar lista la base técnica y el esquema de datos seguro en Supabase.

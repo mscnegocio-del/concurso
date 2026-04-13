@@ -1,95 +1,55 @@
-# Concurso — Sistema de Calificación de Dibujo y Pintura
+# Conuro — Plataforma de concursos con jurados y pantalla pública
 
-Sistema web multi-tenant, responsivo y en tiempo real para gestionar concursos institucionales (Poder Judicial del Perú): creación de eventos, inscripción de participantes, calificación por jurados, publicación de resultados y exportación de actas/reportes.
+Sistema web multi-tenant para instituciones que organizan concursos evaluados por jurado: configuración de eventos, calificación en tiempo real, publicación de podio en TV/proyector y exportación oficial (Excel/PDF según plan).
 
-## Estado actual
+## Estado actual (Abr 2026)
 
 - Repositorio: [mscnegocio-del/concurso](https://github.com/mscnegocio-del/concurso)
-- Proyecto Supabase creado: [becqprcmjxpwiwgflvoj.supabase.co](https://becqprcmjxpwiwgflvoj.supabase.co)
-- Aplicación Vite: carpeta [`conuro-app/`](conuro-app/) (ejecutar `npm install` y `npm run dev` desde ahí).
-- Stack frontend objetivo: React 18 + TypeScript + Vite
-- Estilos: Tailwind CSS v4
+- App frontend: [`conuro-app/`](conuro-app/)
+- Supabase: migraciones activas en `conuro-app/supabase/migrations/`
+- Flujo operativo implementado:
+  - Admin configura evento, categorías, criterios, participantes y jurados.
+  - Jurados califican sin cuenta Auth (token de sesión por jurado).
+  - Administrador/admin publica por categoría en coordinación.
+  - Pantalla pública muestra progreso y podio por categoría.
+  - Exportaciones Excel/PDF.
 
-### Rutas implementadas (Sprint 2)
+## Novedades recientes
 
-- `/` — inicio y enlaces a login / jurado
-- `/login` — OTP por correo (admin / administrador)
-- `/jurado` y `/jurado/panel` — ingreso jurado (código + nombre, sesión en `sessionStorage`)
-- `/admin`, `/administrador`, `/super` — paneles protegidos por rol
-- `/publico/:eventoSlug` — placeholder pantalla pública (Sprint 4)
+- Plantillas de criterios por organización (CRUD + aplicar en evento + opción al crear evento).
+- Importación de jurados desde eventos anteriores.
+- Personalización de pantalla pública (tema claro/oscuro + color acento).
+- Revelación de podio por evento:
+  - `simultaneo` (todos los puestos juntos)
+  - `escalonado` (`3→2→1` o `2→1` según podio)
+  - bloqueo de cambio de categoría mientras una revelación escalonada esté incompleta.
 
-## Stack tecnológico
+## Rutas principales
 
-- Frontend: React 18 + TypeScript + Vite
-- Estilos: Tailwind CSS v4
-- Backend/DB: Supabase (PostgreSQL + Auth + Realtime + Storage)
-- Exportables: `@react-pdf/renderer` (PDF) y `xlsx` (Excel)
-- Deploy: Vercel
-- Pagos: Lemon Squeezy
+- `/login` — acceso OTP (`admin`, `administrador`, `super_admin`)
+- `/admin/evento`, `/admin/historial`, `/admin/coordinacion`, `/admin/plantillas-criterios`
+- `/administrador` — coordinación/publicación
+- `/jurado` y `/jurado/panel/*`
+- `/publico/:codigo_acceso`
+- `/super` — gestión de organizaciones
 
-## Roles del sistema
+## Arranque local rápido
 
-- **Super Admin**: gestiona organizaciones, planes y facturación global.
-- **Admin**: gestiona eventos y configuración completa de su organización.
-- **Administrador**: monitorea progreso y publica resultados por categoría.
-- **Jurado**: califica participantes asignados por evento.
-- **Público**: visualiza pantalla pública cuando se publican resultados.
-
-## Estructura propuesta
-
-```txt
-src/
-  components/
-    ui/
-    admin/
-    administrador/
-    jurado/
-    publico/
-  pages/
-    admin/
-    administrador/
-    jurado/
-    publico/
-  hooks/
-  lib/
-  types/
-  utils/
-  stores/
+```bash
+cd conuro-app
+npm install
+# Copiar .env.example a .env y completar variables
+npm run dev
 ```
-
-## Configuración de entorno
-
-1. Copia el archivo de ejemplo:
-   - Windows (PowerShell): `Copy-Item .env.example .env`
-   - Linux/macOS: `cp .env.example .env`
-2. Completa las variables con valores reales de Supabase, app y Lemon Squeezy.
-
-## Variables requeridas
-
-Ver archivo `.env.example`.
-
-## Flujo MVP priorizado
-
-Orden recomendado para salida rápida:
-
-1. Setup + DB
-2. Auth + routing
-3. Panel Admin núcleo
-4. Panel Jurado (mobile-first)
-5. Pantalla pública
-6. Cálculo y exportables
-7. Panel Administrador (control de publicación)
-
-## Seguridad y arquitectura
-
-- Multi-tenant por `organizacion_id`.
-- RLS en todas las tablas.
-- Jurado solo accede a sus propias calificaciones.
-- Operaciones críticas deben validarse en server-side (Edge Functions).
 
 ## Documentación interna
 
-- Definición funcional y técnica: `CLAUDE.md`
-- Plan detallado por fases: `plan_implementacion.md`
-- Plan operativo por sprints: `plan_sprints_ejecutables.md`
+- Arquitectura/negocio y estado técnico: [`CLAUDE.md`](CLAUDE.md)
+- Plan por fases: [`plan_implementacion.md`](plan_implementacion.md)
+- Plan por sprints y riesgos: [`plan_sprints_ejecutables.md`](plan_sprints_ejecutables.md)
+
+## Hallazgos/puntos de atención
+
+- Existe warning de bundle grande en build (`index` y `acta-pdf-download`), sin romper compilación.
+- El webhook de Lemon Squeezy está en estado esqueleto; falta endurecer validación de firma y actualización final de plan para producción.
 

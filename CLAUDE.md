@@ -1,8 +1,8 @@
-# CLAUDE.md — Sistema de Calificación para Concurso de Dibujo y Pintura
+# CLAUDE.md — Sistema de Calificación para Concursos con Jurados
 
 ## Descripción del proyecto
 
-Sistema web multi-tenant, responsivo y en tiempo real para gestionar concursos de dibujo y pintura institucionales (Poder Judicial del Perú). Permite crear eventos, inscribir participantes, calificar en tiempo real por múltiples jurados, publicar resultados con podio en proyector y exportar ranking oficial (Excel / PDF según plan).
+Sistema web multi-tenant, responsivo y en tiempo real para gestionar concursos institucionales evaluados por jurado (Poder Judicial del Perú). Permite crear eventos, inscribir participantes, calificar en tiempo real por múltiples jurados, publicar resultados con podio en proyector y exportar ranking oficial (Excel / PDF según plan).
 
 **Código de la app:** `conuro-app/` (React + Vite). **Migraciones SQL:** `conuro-app/supabase/migrations/`.
 
@@ -70,7 +70,7 @@ Lógica en `conuro-app/src/lib/planes.ts`. El plan lo cambia el Super Admin en `
 `id` (FK `auth.users`), `organizacion_id`, `email`, `rol` (`super_admin` | `admin` | `administrador`), `nombre_completo`, `created_at`
 
 ### eventos
-`id, organizacion_id, nombre, descripcion, fecha, estado, codigo_acceso (6 chars, único), puestos_a_premiar (2|3), plantilla_criterios_id, created_at`  
+`id, organizacion_id, nombre, descripcion, fecha, estado, codigo_acceso (6 chars, único), puestos_a_premiar (2|3), plantilla_criterios_id, plantilla_publica, color_accento_hex, modo_revelacion_podio, created_at`  
 Índice único parcial: un solo evento en `abierto` o `calificando` por organización.
 
 ### criterios, categorias, participantes, jurados, calificaciones, resultados_publicados, audit_log
@@ -79,6 +79,9 @@ Como en el diseño original, con estas extensiones:
 ### jurados (Sprint 3+)
 `... , token_sesion uuid UNIQUE` — rota en cada login vía `registrar_o_buscar_jurado`; las operaciones del panel jurado usan RPC con el token.
 
+### resultados_publicados (Sprint 7+)
+`... , paso_revelacion int` — en modo escalonado controla cuántos puestos ya son visibles en TV (`0..puestos_a_premiar`).
+
 ---
 
 ## RPCs y funciones SQL destacadas
@@ -86,12 +89,12 @@ Como en el diseño original, con estas extensiones:
 | Área | Función | Uso |
 |------|---------|-----|
 | Jurado | `registrar_o_buscar_jurado`, `jurado_resolver_sesion`, `jurado_listar_*`, `jurado_obtener_mis_calificaciones`, `jurado_guardar_calificacion` | Login y calificación sin exponer notas de otros |
-| Público | `publico_evento_por_codigo`, `publico_progreso_por_codigo`, `publico_categorias_publicadas`, `publico_podio_categoria` | Proyector; podio solo si hay fila en `resultados_publicados` |
-| Coordinador | `coordinador_progreso_evento`, `coordinador_ranking_categoria`, `coordinador_resultados_publicados_lista` | Panel administrador (auth) |
-| Admin | `admin_clonar_evento(p_evento_origen_id)` | Nuevo evento borrador; copia **criterios + categorías**; sin participantes, jurados ni calificaciones |
+| Público | `publico_evento_por_codigo`, `publico_progreso_por_codigo`, `publico_categorias_publicadas`, `publico_podio_categoria` | Proyector; podio solo si la categoría fue publicada y según `paso_revelacion` |
+| Coordinador | `coordinador_progreso_evento`, `coordinador_ranking_categoria`, `coordinador_resultados_publicados_lista`, `coordinador_avanzar_revelacion_categoria` | Panel administrador/auth con publicación simultánea o escalonada |
+| Admin | `admin_clonar_evento(p_evento_origen_id)`, `admin_aplicar_plantilla_criterios`, `admin_copiar_jurados_evento` | Clonado de evento, plantillas de criterios, importación de jurados |
 | Interno | `_admin_o_super_puede_org`, `_puntajes_finales_categoria` (uso interno desde funciones definer) | Autorización y cálculos |
 
-Migraciones versionadas en `conuro-app/supabase/migrations/` (incl. `20260410_001` … `006`).
+Migraciones versionadas en `conuro-app/supabase/migrations/` (incl. `20260410_001` … `20260413_001`).
 
 ---
 
@@ -111,7 +114,8 @@ Migraciones versionadas en `conuro-app/supabase/migrations/` (incl. `20260410_00
 | `/` | Home / redirección por rol |
 | `/login` | OTP admin / administrador / super_admin |
 | `/admin/evento` | Configuración del evento más reciente de la org |
-| `/admin/historial` | Lista de eventos, **Clonar** |
+| `/admin/historial` | Lista de eventos, **Clonar**, crear con modo de revelación y plantilla opcional |
+| `/admin/plantillas-criterios` | CRUD de plantillas de criterios |
 | `/administrador` | Coordinación y publicación |
 | `/super` | Organizaciones (super admin) |
 | `/jurado`, `/jurado/panel`, `/jurado/panel/categoria/:categoriaId`, `/jurado/panel/categoria/:categoriaId/participante/:participanteId` | Jurado |
@@ -124,10 +128,10 @@ Migraciones versionadas en `conuro-app/supabase/migrations/` (incl. `20260410_00
 1. **Admin:** cabecera evento, categorías, criterios, participantes, jurados, transición de estados, exportación Excel/PDF, historial y clonado.
 2. **Administrador:** progreso, ranking previo, publicar categoría, historial de publicaciones, Realtime + polling.
 3. **Jurado:** dashboard por categoría, lista secuencial, formulario por criterios.
-4. **Público:** progreso global y por categoría; última categoría publicada con podio; sonido al nueva publicación; mensaje si evento `publicado`.
+4. **Público:** progreso global y por categoría; última categoría publicada con podio; sonido al nueva publicación; tema claro/oscuro + acento; modo de podio simultáneo o escalonado.
 5. **Super:** listado y alta de organizaciones; plan y activo.
 
-Pendientes de producto / refinamiento: plantillas de criterios en UI avanzada, subida de logos desde admin (URLs en BD sí), reabrir notas solo vía Edge Function (recomendación de arquitectura), confirmación explícita “¿Seguro?” antes de guardar notas del jurado (mejora UX).
+Pendientes de producto / refinamiento: reabrir notas solo vía Edge Function (recomendación de arquitectura), confirmación explícita “¿Seguro?” antes de guardar notas del jurado (mejora UX), completar robustez productiva del webhook de Lemon (firma + plan).
 
 ---
 

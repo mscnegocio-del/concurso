@@ -3,6 +3,28 @@
 
 ---
 
+## Actualización de estado real (Abr 2026)
+
+Este plan contiene histórico de fases; para ejecución actual considerar además:
+
+- Ya está implementado en producción de código:
+  - plantillas de criterios (CRUD + aplicar + opción al crear evento),
+  - importación de jurados entre eventos,
+  - pantalla pública con tema/acento,
+  - revelación de podio por evento (`simultaneo`/`escalonado`) con bloqueo de cambio de categoría mientras la revelación quede incompleta.
+- Migraciones recientes relevantes:
+  - `20260410_008_evento_plantilla_publica.sql`
+  - `20260410_009_admin_plantillas_jurados_rpc.sql`
+  - `20260413_001_revelacion_podio_escalonada.sql`
+
+### Hallazgos / warnings técnicos detectados en código
+
+- Build genera warning de chunks grandes en frontend (`index` y `acta-pdf-download`), sin fallo de compilación.
+- El webhook Lemon Squeezy sigue como esqueleto para producción (pendiente validación estricta de firma + transición final de `plan`).
+- UAT E2E final sigue siendo necesario para marcar cierre operativo completo (sobre todo flujos con múltiples categorías/jurados y estado `cerrado` + publicación escalonada).
+
+---
+
 ## FASE 0 — Setup y configuración base
 **Duración estimada: 1 día**
 
