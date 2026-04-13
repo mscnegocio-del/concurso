@@ -24,6 +24,8 @@ type EventoHeader = {
   codigo_acceso: string
   org_nombre: string
   logo_url: string | null
+  /** Presente tras migración `publico_evento_por_codigo` con subsede. */
+  logo_subsede_url?: string | null
   sonido_revelacion_activo?: boolean
   plantilla_publica?: string
   color_accento_hex?: string | null
@@ -307,12 +309,29 @@ export function PublicoEventoPage() {
         <div className="publico-display flex min-h-[100dvh] w-full min-w-0 flex-col px-[clamp(1rem,3.5vw,2.75rem)] py-[clamp(0.75rem,2.5dvh,2.25rem)]">
           <header className="flex shrink-0 flex-col items-center gap-[clamp(0.75rem,2.5vmin,1.5rem)] text-center md:flex-row md:items-start md:justify-between md:text-left">
           <div className="flex flex-col items-center gap-[clamp(0.75rem,2.5vmin,1.5rem)] md:flex-row md:items-center">
-            {header.logo_url ? (
-              <img
-                src={header.logo_url}
-                alt=""
-                className="h-[clamp(3rem,10dvh,7.5rem)] w-auto max-w-[min(48vw,14rem)] object-contain"
-              />
+            {header.logo_url || header.logo_subsede_url ? (
+              <div className="flex max-w-full flex-row flex-wrap items-center justify-center gap-[clamp(0.5rem,2vmin,1.25rem)] md:justify-start">
+                {header.logo_url ? (
+                  <img
+                    src={header.logo_url}
+                    alt=""
+                    className="h-[clamp(3rem,10dvh,7.5rem)] w-auto max-w-[min(42vw,13rem)] object-contain sm:max-w-[min(40vw,12rem)]"
+                  />
+                ) : null}
+                {header.logo_url && header.logo_subsede_url ? (
+                  <div
+                    className="hidden h-[clamp(2rem,6dvh,4.5rem)] w-px shrink-0 bg-[var(--publico-text-muted)] opacity-35 sm:block"
+                    aria-hidden
+                  />
+                ) : null}
+                {header.logo_subsede_url ? (
+                  <img
+                    src={header.logo_subsede_url}
+                    alt=""
+                    className="h-[clamp(3rem,10dvh,7.5rem)] w-auto max-w-[min(42vw,13rem)] object-contain sm:max-w-[min(40vw,12rem)]"
+                  />
+                ) : null}
+              </div>
             ) : (
               <div className="flex h-[clamp(3rem,10dvh,7.5rem)] w-[clamp(3rem,10dvh,7.5rem)] shrink-0 items-center justify-center rounded-2xl bg-[var(--publico-placeholder-bg)] text-[clamp(1.25rem,4vmin,2rem)] font-bold text-[var(--publico-placeholder-text)]">
                 PJ

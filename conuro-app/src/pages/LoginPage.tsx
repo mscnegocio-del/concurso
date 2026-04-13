@@ -5,9 +5,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
+import { AuthGateLayout } from '@/components/layouts/AuthGateLayout'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Form,
   FormControl,
@@ -179,152 +179,167 @@ export function LoginPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center p-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Acceso administración</CardTitle>
-          <CardDescription>
-            Ingresa con el correo institucional y el código OTP de 8 dígitos.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {user && perfilError && (
-            <Alert className="mb-4 border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
-              <AlertTitle>Perfil no disponible</AlertTitle>
-              <AlertDescription className="mt-2">
-                {perfilError}
-                <Button
-                  type="button"
-                  variant="link"
-                  className="mt-2 h-auto p-0 text-amber-900 dark:text-amber-100"
-                  onClick={() => void signOut()}
-                >
-                  Cerrar sesión e intentar con otra cuenta
-                </Button>
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          {step === 'email' ? (
-            <Form {...emailForm}>
-              <form
-                className="space-y-4"
-                onSubmit={emailForm.handleSubmit(onSendEmail)}
-                noValidate
-              >
-                <FormField
-                  control={emailForm.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Correo electrónico</FormLabel>
-                      <FormControl>
-                        <Input type="email" autoComplete="email" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" className="w-full" disabled={sending}>
-                  {sending ? (
-                    <>
-                      <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
-                      Enviando…
-                    </>
-                  ) : (
-                    'Enviar código OTP'
-                  )}
-                </Button>
-              </form>
-            </Form>
-          ) : (
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Código enviado a <span className="font-medium text-foreground">{pendingEmail}</span>
-              </p>
-              <p className="text-center text-xs text-muted-foreground">
-                Tiempo aproximado:{' '}
-                <span className="font-mono font-medium text-foreground">
-                  {String(Math.floor(otpSecondsLeft / 60)).padStart(2, '0')}:
-                  {String(otpSecondsLeft % 60).padStart(2, '0')}
-                </span>
-              </p>
-              <div className="flex flex-wrap justify-center gap-1.5" onPaste={onOtpPaste}>
-                {otp.map((d, i) => (
-                  <Input
-                    key={i}
-                    ref={(el) => {
-                      inputRefs.current[i] = el
-                    }}
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={1}
-                    value={d}
-                    aria-label={`Dígito ${i + 1}`}
-                    aria-invalid={!!error && otp.join('').length < 8}
-                    className={cn('h-11 w-9 text-center font-mono text-lg')}
-                    onChange={(e) => onOtpChange(i, e.target.value)}
-                    onKeyDown={(e) => onOtpKeyDown(i, e.key)}
-                  />
-                ))}
-              </div>
-              <Button
-                type="button"
-                className="w-full"
-                disabled={verifying}
-                onClick={() => void onVerifyOtp()}
-              >
-                {verifying ? (
-                  <>
-                    <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
-                    Verificando…
-                  </>
-                ) : (
-                  'Verificar e ingresar'
-                )}
-              </Button>
-              <div className="flex flex-wrap gap-3 text-sm">
-                <Button
-                  type="button"
-                  variant="link"
-                  className="h-auto gap-2 p-0"
-                  disabled={sending}
-                  onClick={() => void onResend()}
-                >
-                  {sending ? <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden /> : null}
-                  Reenviar código
-                </Button>
-                <Button
-                  type="button"
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() => {
-                    sessionStorage.removeItem(LOGIN_EMAIL_KEY)
-                    setStep('email')
-                    setOtp(Array(8).fill(''))
-                    setError(null)
-                  }}
-                >
-                  Cambiar correo
-                </Button>
-              </div>
-            </div>
-          )}
-
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            <Button variant="link" className="h-auto p-0" asChild>
-              <Link to="/">Volver al inicio</Link>
+    <AuthGateLayout
+      title="Acceso administración"
+      description={
+        step === 'email'
+          ? 'Correo institucional y código OTP de 8 dígitos enviado por correo.'
+          : 'Introduce el código de 8 dígitos que enviamos a tu bandeja.'
+      }
+      footer={
+        <p className="text-center text-sm text-muted-foreground">
+          <Button variant="link" className="h-auto p-0 text-muted-foreground" asChild>
+            <Link to="/">Volver al inicio</Link>
+          </Button>
+        </p>
+      }
+    >
+      {user && perfilError && (
+        <Alert className="mb-4 border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+          <AlertTitle>Perfil no disponible</AlertTitle>
+          <AlertDescription className="mt-2">
+            {perfilError}
+            <Button
+              type="button"
+              variant="link"
+              className="mt-2 h-auto p-0 text-amber-900 dark:text-amber-100"
+              onClick={() => void signOut()}
+            >
+              Cerrar sesión e intentar con otra cuenta
             </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {error && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {step === 'email' ? (
+        <Form {...emailForm}>
+          <form
+            className="space-y-5"
+            onSubmit={emailForm.handleSubmit(onSendEmail)}
+            noValidate
+          >
+            <FormField
+              control={emailForm.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Correo electrónico</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="email"
+                      autoComplete="email"
+                      className="h-11 rounded-lg text-base shadow-sm"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Button type="submit" className="h-11 w-full rounded-lg text-base font-medium" disabled={sending}>
+              {sending ? (
+                <>
+                  <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                  Enviando…
+                </>
+              ) : (
+                'Enviar código OTP'
+              )}
+            </Button>
+          </form>
+        </Form>
+      ) : (
+        <div className="space-y-5">
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            Enviado a{' '}
+            <span className="font-medium break-all text-foreground">{pendingEmail}</span>
           </p>
-        </CardContent>
-      </Card>
-    </main>
+          <div className="flex items-center justify-center gap-2">
+            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Tiempo restante
+            </span>
+            <span
+              className="rounded-md bg-muted/80 px-2.5 py-1 font-mono text-sm font-semibold tabular-nums text-foreground ring-1 ring-border/60"
+              aria-live="polite"
+            >
+              {String(Math.floor(otpSecondsLeft / 60)).padStart(2, '0')}:
+              {String(otpSecondsLeft % 60).padStart(2, '0')}
+            </span>
+          </div>
+          <div
+            className="flex flex-wrap justify-center gap-2 sm:gap-2.5"
+            onPaste={onOtpPaste}
+          >
+            {otp.map((d, i) => (
+              <Input
+                key={i}
+                ref={(el) => {
+                  inputRefs.current[i] = el
+                }}
+                type="text"
+                inputMode="numeric"
+                maxLength={1}
+                value={d}
+                aria-label={`Dígito ${i + 1} del código`}
+                aria-invalid={!!error && otp.join('').length < 8}
+                className={cn(
+                  'h-12 w-10 rounded-lg border-2 border-input bg-background text-center font-mono text-xl tabular-nums shadow-sm transition-colors',
+                  'focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-primary/20',
+                )}
+                onChange={(e) => onOtpChange(i, e.target.value)}
+                onKeyDown={(e) => onOtpKeyDown(i, e.key)}
+              />
+            ))}
+          </div>
+          <Button
+            type="button"
+            className="h-11 w-full rounded-lg text-base font-medium"
+            disabled={verifying}
+            onClick={() => void onVerifyOtp()}
+          >
+            {verifying ? (
+              <>
+                <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                Verificando…
+              </>
+            ) : (
+              'Verificar e ingresar'
+            )}
+          </Button>
+          <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-sm">
+            <Button
+              type="button"
+              variant="link"
+              className="h-auto gap-2 p-0"
+              disabled={sending}
+              onClick={() => void onResend()}
+            >
+              {sending ? <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden /> : null}
+              Reenviar código
+            </Button>
+            <Button
+              type="button"
+              variant="link"
+              className="h-auto p-0"
+              onClick={() => {
+                sessionStorage.removeItem(LOGIN_EMAIL_KEY)
+                setStep('email')
+                setOtp(Array(8).fill(''))
+                setError(null)
+              }}
+            >
+              Cambiar correo
+            </Button>
+          </div>
+        </div>
+      )}
+    </AuthGateLayout>
   )
 }
