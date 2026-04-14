@@ -331,52 +331,57 @@ export function CoordinacionSalaPanel({
 
   return (
     <div className={cn('space-y-6', 'pb-24 lg:pb-6')}>
-      {avisoAdmin ? (
-        <Alert>
-          <AlertTitle>Coordinación de sala</AlertTitle>
-          <AlertDescription>{avisoAdmin}</AlertDescription>
-        </Alert>
-      ) : null}
+      {/* ── Alerts section (full-width, stacked) ─────────────────── */}
+      <div className="space-y-4">
+        {avisoAdmin ? (
+          <Alert>
+            <AlertTitle>Coordinación de sala</AlertTitle>
+            <AlertDescription>{avisoAdmin}</AlertDescription>
+          </Alert>
+        ) : null}
 
-      {historial.length > 0 && (
-        <Alert>
-          <AlertTitle>Estado en pantalla pública</AlertTitle>
-          <AlertDescription>
-            {historial.length} categoría{historial.length === 1 ? '' : 's'} ya publicada
-            {historial.length === 1 ? '' : 's'} en el proyector. El historial completo está al final de la página.
-          </AlertDescription>
-        </Alert>
-      )}
+        {historial.length > 0 && (
+          <Alert variant="success">
+            <AlertTitle>Estado en pantalla pública</AlertTitle>
+            <AlertDescription>
+              {historial.length} categoría{historial.length === 1 ? '' : 's'} ya publicada
+              {historial.length === 1 ? '' : 's'} en el proyector. El historial completo está al final de la página.
+            </AlertDescription>
+          </Alert>
+        )}
 
-      {evento.estado === 'borrador' && (
-        <Alert variant="destructive">
-          <AlertTitle>Evento en borrador</AlertTitle>
-          <AlertDescription>
-            Aún no puedes publicar resultados. El administrador debe activar el evento (pasar a abierto) cuando
-            esté lista la configuración.
-          </AlertDescription>
-        </Alert>
-      )}
+        {evento.estado === 'borrador' && (
+          <Alert variant="destructive">
+            <AlertTitle>Evento en borrador</AlertTitle>
+            <AlertDescription>
+              Aún no puedes publicar resultados. El administrador debe activar el evento (pasar a abierto) cuando
+              esté lista la configuración.
+            </AlertDescription>
+          </Alert>
+        )}
 
-      {(evento.estado === 'cerrado' || evento.estado === 'publicado') && (
-        <Alert>
-          <AlertTitle>Evento {evento.estado}</AlertTitle>
-          <AlertDescription>
-            La calificación terminó. Puedes seguir publicando/revelando categorías pendientes en la pantalla pública.
-          </AlertDescription>
-        </Alert>
-      )}
+        {(evento.estado === 'cerrado' || evento.estado === 'publicado') && (
+          <Alert variant="warning">
+            <AlertTitle>Evento {evento.estado}</AlertTitle>
+            <AlertDescription>
+              La calificación terminó. Puedes seguir publicando/revelando categorías pendientes en la pantalla pública.
+            </AlertDescription>
+          </Alert>
+        )}
 
-      {modoRevelacion === 'escalonado' && filaActivaEscalonada && (
-        <Alert>
-          <AlertTitle>Revelación en progreso</AlertTitle>
-          <AlertDescription>
-            Debes terminar la categoría <strong>{filaActivaEscalonada.categoria_nombre}</strong> antes de cambiar a otra.
-          </AlertDescription>
-        </Alert>
-      )}
+        {modoRevelacion === 'escalonado' && filaActivaEscalonada && (
+          <Alert>
+            <AlertTitle>Revelación en progreso</AlertTitle>
+            <AlertDescription>
+              Debes terminar la categoría <strong>{filaActivaEscalonada.categoria_nombre}</strong> antes de cambiar a otra.
+            </AlertDescription>
+          </Alert>
+        )}
+      </div>
 
-      <SimplePanel>
+      {/* ── Panels grid: 1-col mobile, 2-col lg+ ─────────────────── */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <SimplePanel>
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">1 · Sala</p>
         <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -458,105 +463,110 @@ export function CoordinacionSalaPanel({
         {progreso.length === 0 && <p className="mt-2 text-sm text-muted-foreground">No hay categorías.</p>}
       </SimplePanel>
 
-      <SimplePanel>
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">3 · Revisar y publicar</p>
-        <h3 className="mt-2 text-base font-semibold text-foreground">Ranking previo (coordinación)</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Vista previa antes de publicar; el público solo ve el podio tras publicar la categoría. Los códigos de
-          participante no se muestran aquí para alinear con la pantalla pública.
-        </p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Modo de revelación: <strong>{modoRevelacion === 'escalonado' ? 'Escalonada' : 'Podio completo'}</strong>
-        </p>
-        <div className="mt-4">
-          <label className="text-sm text-muted-foreground" htmlFor="coord-cat">
-            Categoría
-          </label>
-          <select
-            id="coord-cat"
-            value={categoriaSeleccionada}
-            onChange={(e) => setCatPreview(e.target.value)}
-            disabled={modoRevelacion === 'escalonado' && !!filaActivaEscalonada}
-            className="border-input bg-background ring-offset-background focus-visible:ring-ring mt-1 flex h-10 w-full max-w-md rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-          >
-            {progreso.map((r) => (
-              <option key={r.categoria_id} value={r.categoria_id}>
-                {r.categoria_nombre}
-              </option>
-            ))}
-          </select>
-        </div>
-        {calificacionesIncompletas && (
-          <Alert variant="destructive" className="mt-3">
-            <AlertTitle>Calificaciones incompletas</AlertTitle>
-            <AlertDescription>
-              Esta categoría aún no tiene todas las calificaciones esperadas. Puedes publicar igualmente si el
-              comité lo autoriza; de lo contrario espera a que terminen los jurados.
-            </AlertDescription>
-          </Alert>
-        )}
-        {selectorBloqueado && (
-          <p className="mt-3 text-sm text-amber-700">
-            Completa la revelación de la categoría activa antes de cambiar.
+      <div className="lg:col-span-2">
+        <SimplePanel>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">3 · Revisar y publicar</p>
+          <h3 className="mt-2 text-base font-semibold text-foreground">Ranking previo (coordinación)</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Vista previa antes de publicar; el público solo ve el podio tras publicar la categoría. Los códigos de
+            participante no se muestran aquí para alinear con la pantalla pública.
           </p>
-        )}
-        <ol className="mt-4 list-decimal space-y-1 pl-5 text-sm">
-          {ranking.map((x) => (
-            <li key={x.participante_id}>
-              <span className="text-foreground">{x.nombre_completo}</span> —{' '}
-              <strong>{x.puntaje_final}</strong>
-            </li>
-          ))}
-        </ol>
-        {ranking.length === 0 && categoriaSeleccionada && (
-          <p className="mt-2 text-sm text-muted-foreground">Sin datos de ranking aún.</p>
-        )}
-
-        <div className="mt-6 hidden lg:block">
-          <PublicarBlock
-            disabled={
-              pubBusy ||
-              !categoriaSeleccionada ||
-              publicarDeshabilitado ||
-              (modoRevelacion === 'escalonado' && revelacionCompletaSeleccion)
-            }
-            busy={pubBusy}
-            yaPublicada={yaPublicadaSeleccion}
-            escalonada={modoRevelacion === 'escalonado'}
-            pasoActual={pasoSeleccionado}
-            pasoMax={maxPaso}
-            label={botonLabel}
-            onClick={() => void publicarCategoria()}
-          />
-        </div>
-      </SimplePanel>
-
-      <SimplePanel>
-        <h3 className="text-base font-semibold text-foreground">Historial de publicaciones</h3>
-        <ul className="mt-3 space-y-3 text-sm">
-          {historial.map((h) => {
-            const nombre =
-              progreso.find((p) => p.categoria_id === h.categoria_id)?.categoria_nombre ?? h.categoria_id
-            return (
-              <li
-                key={`${h.categoria_id}-${h.publicado_at}`}
-                className="flex flex-col gap-1 border-b border-border/60 pb-3 last:border-0"
-              >
-                <div className="flex flex-wrap justify-between gap-2">
-                  <span className="font-medium text-foreground">{nombre}</span>
-                  <span className="text-muted-foreground">
-                    {new Date(h.publicado_at).toLocaleString('es-PE')}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Por: {h.nombre_publicador ?? 'Sin registro'}
-                </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Modo de revelación: <strong>{modoRevelacion === 'escalonado' ? 'Escalonada' : 'Podio completo'}</strong>
+          </p>
+          <div className="mt-4">
+            <label className="text-sm text-muted-foreground" htmlFor="coord-cat">
+              Categoría
+            </label>
+            <select
+              id="coord-cat"
+              value={categoriaSeleccionada}
+              onChange={(e) => setCatPreview(e.target.value)}
+              disabled={modoRevelacion === 'escalonado' && !!filaActivaEscalonada}
+              className="border-input bg-background ring-offset-background focus-visible:ring-ring mt-1 flex h-10 w-full max-w-md rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+            >
+              {progreso.map((r) => (
+                <option key={r.categoria_id} value={r.categoria_id}>
+                  {r.categoria_nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+          {calificacionesIncompletas && (
+            <Alert variant="destructive" className="mt-3">
+              <AlertTitle>Calificaciones incompletas</AlertTitle>
+              <AlertDescription>
+                Esta categoría aún no tiene todas las calificaciones esperadas. Puedes publicar igualmente si el
+                comité lo autoriza; de lo contrario espera a que terminen los jurados.
+              </AlertDescription>
+            </Alert>
+          )}
+          {selectorBloqueado && (
+            <p className="mt-3 text-sm text-amber-700">
+              Completa la revelación de la categoría activa antes de cambiar.
+            </p>
+          )}
+          <ol className="mt-4 list-decimal space-y-1 pl-5 text-sm">
+            {ranking.map((x) => (
+              <li key={x.participante_id}>
+                <span className="text-foreground">{x.nombre_completo}</span> —{' '}
+                <strong>{x.puntaje_final}</strong>
               </li>
-            )
-          })}
-        </ul>
-        {historial.length === 0 && <p className="text-sm text-muted-foreground">Ninguna categoría publicada aún.</p>}
-      </SimplePanel>
+            ))}
+          </ol>
+          {ranking.length === 0 && categoriaSeleccionada && (
+            <p className="mt-2 text-sm text-muted-foreground">Sin datos de ranking aún.</p>
+          )}
+
+          <div className="mt-6 hidden lg:block">
+            <PublicarBlock
+              disabled={
+                pubBusy ||
+                !categoriaSeleccionada ||
+                publicarDeshabilitado ||
+                (modoRevelacion === 'escalonado' && revelacionCompletaSeleccion)
+              }
+              busy={pubBusy}
+              yaPublicada={yaPublicadaSeleccion}
+              escalonada={modoRevelacion === 'escalonado'}
+              pasoActual={pasoSeleccionado}
+              pasoMax={maxPaso}
+              label={botonLabel}
+              onClick={() => void publicarCategoria()}
+            />
+          </div>
+        </SimplePanel>
+      </div>
+
+      <div className="lg:col-span-2">
+        <SimplePanel>
+          <h3 className="text-base font-semibold text-foreground">Historial de publicaciones</h3>
+          <ul className="mt-3 space-y-3 text-sm">
+            {historial.map((h) => {
+              const nombre =
+                progreso.find((p) => p.categoria_id === h.categoria_id)?.categoria_nombre ?? h.categoria_id
+              return (
+                <li
+                  key={`${h.categoria_id}-${h.publicado_at}`}
+                  className="flex flex-col gap-1 border-b border-border/60 pb-3 last:border-0"
+                >
+                  <div className="flex flex-wrap justify-between gap-2">
+                    <span className="font-medium text-foreground">{nombre}</span>
+                    <span className="text-muted-foreground">
+                      {new Date(h.publicado_at).toLocaleString('es-PE')}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Por: {h.nombre_publicador ?? 'Sin registro'}
+                  </p>
+                </li>
+              )
+            })}
+          </ul>
+          {historial.length === 0 && <p className="text-sm text-muted-foreground">Ninguna categoría publicada aún.</p>}
+        </SimplePanel>
+      </div>
+      </div>
 
       {/* Por encima del contenido pero debajo del nav móvil del shell (z-50). bottom alineado al padding del main (5rem+safe) para no quedar tapado. */}
       <div

@@ -100,7 +100,7 @@ export function PanelLayout({
 
   return (
     <div className="flex min-h-dvh w-full bg-background">
-      <aside className="hidden w-64 shrink-0 border-r border-sidebar-border lg:block">
+      <aside className="hidden w-64 shrink-0 border-r border-sidebar-border lg:sticky lg:top-0 lg:h-dvh lg:overflow-y-auto lg:block">
         <SidebarNav
           title={title}
           subNav={subNav}
