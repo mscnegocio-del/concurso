@@ -1,0 +1,145 @@
+════════════════════════════════════════════════════════════════════════════════
+  SPRINT 8 - RESUMEN DE CAMBIOS Y FIXES
+  14 de abril de 2026
+════════════════════════════════════════════════════════════════════════════════
+
+✅ COMPLETADO: Tres mejoras críticas implementadas y documentadas
+
+────────────────────────────────────────────────────────────────────────────────
+1️⃣ UI/UX MEJORADA - Panel Administrador
+────────────────────────────────────────────────────────────────────────────────
+
+✨ SIDEBAR STICKY EN DESKTOP
+  • El menú lateral ahora permanece visible al hacer scroll
+  • Clases Tailwind: lg:sticky lg:top-0 lg:h-dvh lg:overflow-y-auto
+  • Aplica a: Admin, Administrador, Super Admin
+  • Móvil: Sin cambios (hamburger menu)
+  
+✨ ALERTAS CON COLORES SEMÁNTICOS
+  • "Estado en pantalla pública" → VERDE (success)
+  • "Evento cerrado/publicado" → ÁMBAR (warning)
+  • Nuevas variantes agregadas a componente <Alert>
+  
+✨ DASHBOARD RESPONSIVO (2-COLUMNAS)
+  Desktop:
+    ┌─────────────────────────────────────┐
+    │    ALERTAS (full-width)             │
+    ├─────────────┬───────────────────────┤
+    │ Sala        │ Avance                │
+    ├─────────────────────────────────────┤
+    │ Revisar y publicar (full-width)     │
+    ├─────────────────────────────────────┤
+    │ Historial (full-width)              │
+    └─────────────────────────────────────┘
+
+  Móvil: Columna única (sin cambios)
+
+────────────────────────────────────────────────────────────────────────────────
+2️⃣ BUG FIX - Historial no se actualizaba al republicar
+────────────────────────────────────────────────────────────────────────────────
+
+❌ PROBLEMA:
+  • Al publicar una categoría y luego hacerlo de nuevo
+  • El historial mostraba SOLO la primera publicación
+  • La fecha y usuario NUNCA se actualizaban
+
+🔍 CAUSA RAÍZ:
+  • Función SQL: coordinador_avanzar_revelacion_categoria
+  • El UPDATE solo ejecutaba si paso_revelacion < puestos_a_premiar
+  • Si ya estaba completamente revelada: NO había UPDATE
+
+✅ SOLUCIÓN:
+  • Nueva migración: 20260414_001_fix_republish_historial.sql
+  • Cambió lógica para SIEMPRE actualizar publicado_at y publicado_por
+  • Ahora el historial refleja la ÚLTIMA publicación correctamente
+
+📝 Archivo: supabase/migrations/20260414_001_fix_republish_historial.sql
+   → Debe aplicarse en Supabase antes de usar la función
+
+────────────────────────────────────────────────────────────────────────────────
+3️⃣ BUG FIX - Pantalla pública no actualiza en tiempo real
+────────────────────────────────────────────────────────────────────────────────
+
+❌ PROBLEMA:
+  • TV/Proyector (pantalla pública) solo actualiza cada 5 segundos (polling)
+  • Latencia observable al publicar una categoría
+  • Usuario espera hasta 5 segundos para verlo en pantalla
+
+🔍 CAUSA RAÍZ:
+  • PublicoEventoPage NO tenía Realtime subscriptions
+  • Solo confiaba en polling cada 5 segundos
+  • No había listener para cambios en resultados_publicados
+
+✅ SOLUCIÓN:
+  • Agregado Realtime listener en PublicoEventoPage
+  • Listener se dispara cuando hay cambios en resultados_publicados
+  • Pantalla se actualiza INMEDIATAMENTE (sin esperar 5 segundos)
+  • Polling sigue funcionando como fallback
+
+📝 Archivo: src/pages/publico/PublicoEventoPage.tsx
+   → useEffect con listener Realtime (líneas 241-253)
+   
+FLUJO AHORA:
+  Admin publica → RPC ejecuta → Realtime notifica → Pantalla actualiza (inmediata)
+                                                  ↓ fallback si falla
+                                           Polling cada 5 segundos
+
+════════════════════════════════════════════════════════════════════════════════
+📋 ARCHIVOS CAMBIADOS
+════════════════════════════════════════════════════════════════════════════════
+
+FRONTEND:
+  ✓ src/components/layouts/PanelLayout.tsx (sidebar sticky)
+  ✓ src/components/ui/alert.tsx (variantes success + warning)
+  ✓ src/components/coordinacion/CoordinacionSalaPanel.tsx (grid layout + colores)
+  ✓ src/pages/publico/PublicoEventoPage.tsx (Realtime listener)
+
+BASE DE DATOS:
+  ✓ supabase/migrations/20260414_001_fix_republish_historial.sql (fix RPC)
+
+DOCUMENTACIÓN:
+  ✓ CLAUDE.md (actualizado)
+  ✓ README.md (actualizado)
+  ✓ CHANGELOG.md (NUEVO - registro histórico)
+  ✓ IMPLEMENTACION_SPRINT_8.md (NUEVO - detalles técnicos)
+
+════════════════════════════════════════════════════════════════════════════════
+🚀 PRÓXIMOS PASOS
+════════════════════════════════════════════════════════════════════════════════
+
+1. APLICAR MIGRACIÓN SQL EN SUPABASE
+   □ Abrir SQL Editor en Supabase
+   □ Ejecutar contenido de: 20260414_001_fix_republish_historial.sql
+   □ Verificar que se ejecutó sin errores
+
+2. REDEPLOY DEL FRONTEND
+   □ npm run build (verificar que compila sin errores)
+   □ git push origin main (si aún no has hecho commit)
+   □ Vercel auto-deploya
+
+3. VERIFICAR EN PRODUCCIÓN
+   □ Publicar una categoría
+   □ Verificar que historial muestra fecha/hora de ahora
+   □ Verificar que pantalla TV actualiza inmediatamente
+
+════════════════════════════════════════════════════════════════════════════════
+📊 ESTADÍSTICAS
+════════════════════════════════════════════════════════════════════════════════
+
+  Archivos modificados: 8
+  Líneas de código: ~150 (frontend) + ~100 (SQL)
+  Nuevas variantes UI: 2 (success, warning)
+  Bug fixes: 2 (historial, realtime)
+  Commits: 2
+  Documentación: +500 líneas
+
+════════════════════════════════════════════════════════════════════════════════
+✨ BUILD VERIFICATIONS
+════════════════════════════════════════════════════════════════════════════════
+
+✅ npm run build — EXITOSO (no hay errores)
+✅ TypeScript — OK (no hay type errors)
+✅ Compilación — OK (todas las dependencias resueltas)
+✅ Git commit — OK (cambios documentados)
+
+════════════════════════════════════════════════════════════════════════════════
