@@ -84,13 +84,13 @@ begin
   if v_modo = 'simultaneo' then
     -- Modo simultaneo: siempre actualiza a paso_revelacion = v_puestos
     -- y registra quien y cuando publica (incluso al republicar)
-    update public.resultados_publicados
+    update public.resultados_publicados rp2
     set
       paso_revelacion = v_puestos,
       publicado_at = now(),
       publicado_por = auth.uid()
-    where evento_id = p_evento_id and categoria_id = p_categoria_id
-    returning paso_revelacion into v_paso_actual;
+    where rp2.evento_id = p_evento_id and rp2.categoria_id = p_categoria_id
+    returning rp2.paso_revelacion into v_paso_actual;
 
     return query select v_paso_actual, (v_paso_actual >= v_puestos);
     return;
@@ -98,13 +98,13 @@ begin
 
   -- Modo escalonado: incrementa el paso de revelacion
   if v_paso_actual < v_puestos then
-    update public.resultados_publicados
+    update public.resultados_publicados rp2
     set
       paso_revelacion = least(v_paso_actual + 1, v_puestos),
       publicado_at = now(),
       publicado_por = auth.uid()
-    where evento_id = p_evento_id and categoria_id = p_categoria_id
-    returning paso_revelacion into v_paso_actual;
+    where rp2.evento_id = p_evento_id and rp2.categoria_id = p_categoria_id
+    returning rp2.paso_revelacion into v_paso_actual;
   end if;
 
   return query select v_paso_actual, (v_paso_actual >= v_puestos);

@@ -16,6 +16,12 @@ Sistema web multi-tenant para instituciones que organizan concursos evaluados po
 
 ## Novedades recientes
 
+### Sprint 8 (14 de abril 2026)
+- **UI mejorada:** Sidebar sticky, alertas con colores semánticos, dashboard responsivo 2-columnas en desktop
+- **Historial actualizado:** Bug fix en `coordinador_avanzar_revelacion_categoria` — ahora registra la última publicación, no solo la primera
+- **Realtime en pantalla pública:** Pantalla TV se actualiza en tiempo real al publicar (no espera 5 segundos de polling)
+
+### Sprints anteriores
 - Plantillas de criterios por organización (CRUD + aplicar en evento + opción al crear evento).
 - Importación de jurados desde eventos anteriores.
 - Personalización de pantalla pública (tema claro/oscuro + color acento).

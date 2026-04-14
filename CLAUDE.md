@@ -90,11 +90,11 @@ Como en el diseño original, con estas extensiones:
 |------|---------|-----|
 | Jurado | `registrar_o_buscar_jurado`, `jurado_resolver_sesion`, `jurado_listar_*`, `jurado_obtener_mis_calificaciones`, `jurado_guardar_calificacion` | Login y calificación sin exponer notas de otros |
 | Público | `publico_evento_por_codigo`, `publico_progreso_por_codigo`, `publico_categorias_publicadas`, `publico_podio_categoria` | Proyector; podio solo si la categoría fue publicada y según `paso_revelacion` |
-| Coordinador | `coordinador_progreso_evento`, `coordinador_ranking_categoria`, `coordinador_resultados_publicados_lista`, `coordinador_avanzar_revelacion_categoria` | Panel administrador/auth con publicación simultánea o escalonada |
+| Coordinador | `coordinador_progreso_evento`, `coordinador_ranking_categoria`, `coordinador_resultados_publicados_lista`, `coordinador_avanzar_revelacion_categoria` | Panel administrador/auth con publicación simultánea o escalonada. **[MEJORADO en 20260414_001]** Ahora actualiza `publicado_at` y `publicado_por` al republicar una categoría, incluso si ya está completamente revelada. |
 | Admin | `admin_clonar_evento(p_evento_origen_id)`, `admin_aplicar_plantilla_criterios`, `admin_copiar_jurados_evento` | Clonado de evento, plantillas de criterios, importación de jurados |
 | Interno | `_admin_o_super_puede_org`, `_puntajes_finales_categoria` (uso interno desde funciones definer) | Autorización y cálculos |
 
-Migraciones versionadas en `conuro-app/supabase/migrations/` (incl. `20260410_001` … `20260413_001`).
+Migraciones versionadas en `conuro-app/supabase/migrations/` (incl. `20260410_001` … `20260414_001`).
 
 ---
 
@@ -223,7 +223,29 @@ Configuración ya hecha en Supabase / Auth (ejemplo):
 
 ---
 
+## Cambios Recientes (Sprint 8 — Abril 2026)
+
+### UI/UX — Panel Administrador (14/04/2026)
+- **Sidebar sticky en desktop:** El menú lateral ahora permanece fijo al hacer scroll (`lg:sticky lg:top-0 lg:h-dvh lg:overflow-y-auto`)
+- **Alertas con colores semánticos:** 
+  - "Estado en pantalla pública" → `variant="success"` (verde)
+  - "Evento cerrado/publicado" → `variant="warning"` (ámbar)
+- **Dashboard responsivo:** Grid 2 columnas en desktop (Sala + Avance lado a lado; Revisar y publicar + Historial full-width)
+
+### Funcionalidad — Historial y Pantalla Pública (14/04/2026)
+- **Migración `20260414_001_fix_republish_historial.sql`:**
+  - ✅ Arregló bug: `coordinador_avanzar_revelacion_categoria` ahora siempre actualiza `publicado_at` y `publicado_por` al republicar en modo simultáneo
+  - ✅ El historial ahora refleja la ÚLTIMA publicación, no solo la primera
+  
+- **Realtime en pantalla pública:**
+  - ✅ `PublicoEventoPage.tsx`: Agregado listener Realtime para `resultados_publicados`
+  - ✅ La pantalla proyector se actualiza en **tiempo real** (no espera 5 segundos de polling)
+  - ✅ El polling cada 5 segundos funciona como fallback si Realtime falla
+
+---
+
 ## Notas de desarrollo
 
 - Mobile-first en panel jurado; pantalla pública pensada para 1080p.
 - Cambios de estado críticos y reabrir calificaciones: ideal **Edge Function** con validación server-side (parcialmente cubierto por RPC definer + RLS).
+- **Realtime ahora en:** coordinador (`CoordinacionSalaPanel`), administrador (implícito), público TV (`PublicoEventoPage`).
