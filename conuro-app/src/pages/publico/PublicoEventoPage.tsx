@@ -238,6 +238,25 @@ export function PublicoEventoPage() {
     }
   }, [header])
 
+  // Realtime listener para cambios en resultados_publicados
+  useEffect(() => {
+    if (!header?.id) return
+    const eventoId = header.id
+    const ch = supabase
+      .channel(`publico-${codigo}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'resultados_publicados', filter: `evento_id=eq.${eventoId}` },
+        () => {
+          queueMicrotask(() => void cargar())
+        },
+      )
+      .subscribe()
+    return () => {
+      void supabase.removeChannel(ch)
+    }
+  }, [header?.id, codigo, cargar])
+
   useEffect(() => {
     queueMicrotask(() => {
       void cargar()
