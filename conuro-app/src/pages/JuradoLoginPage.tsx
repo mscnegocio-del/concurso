@@ -1,4 +1,4 @@
-import { Loader2 } from 'lucide-react'
+import { ChevronLeft, Loader2 } from 'lucide-react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -21,25 +21,41 @@ import { ConuroMarketingCta } from '@/components/marketing/ConuroMarketingCta'
 import { supabase } from '@/lib/supabase'
 import type { JuradoSession } from '@/types/jurado'
 
-const schema = z.object({
+const codigoSchema = z.object({
   codigo: z
     .string()
-    .min(4, 'Código demasiado corto')
-    .max(10, 'Código no válido')
+    .length(6, 'El código debe tener exactamente 6 caracteres')
     .transform((s) => s.trim().toUpperCase()),
+})
+
+const nombreSchema = z.object({
   nombreCompleto: z.string().min(2, 'Ingresa tu nombre completo').max(200),
 })
 
-type FormValues = z.input<typeof schema>
+type CodigoValues = z.input<typeof codigoSchema>
+type NombreValues = z.input<typeof nombreSchema>
+
+type EventoEncontrado = {
+  id: string
+  nombre: string
+  logo_url?: string | null
+}
 
 export function JuradoLoginPage() {
   const navigate = useNavigate()
   const { session, setSession } = useJurado()
-  const [hintEventoNoDisponible, setHintEventoNoDisponible] = useState(false)
+  const [step, setStep] = useState<'codigo' | 'nombre'>('codigo')
+  const [eventoEncontrado, setEventoEncontrado] = useState<EventoEncontrado | null>(null)
+  const [codigoUsado, setCodigoUsado] = useState('')
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: { codigo: '', nombreCompleto: '' },
+  const codigoForm = useForm<CodigoValues>({
+    resolver: zodResolver(codigoSchema),
+    defaultValues: { codigo: '' },
+  })
+
+  const nombreForm = useForm<NombreValues>({
+    resolver: zodResolver(nombreSchema),
+    defaultValues: { nombreCompleto: '' },
   })
 
   useEffect(() => {
@@ -52,62 +68,71 @@ export function JuradoLoginPage() {
     return <Navigate to="/jurado/panel" replace />
   }
 
-  async function onSubmit(values: FormValues) {
-    setHintEventoNoDisponible(false)
-    const parsed = schema.parse(values)
-    const { data: eventoRows, error: e1 } = await supabase.rpc(
-      'buscar_evento_por_codigo',
-      { p_codigo: parsed.codigo },
-    )
-    if (e1) {
-      form.setError('root', { message: e1.message })
+  async function onSubmitCodigo(values: CodigoValues) {
+    const parsed = codigoSchema.parse(values)
+    const { data: eventoRows, error } = await supabase.rpc('buscar_evento_por_codigo', {
+      p_codigo: parsed.codigo,
+    })
+    if (error) {
+      codigoForm.setError('root', { message: error.message })
       return
     }
-    const evento = eventoRows?.[0]
+    const evento = eventoRows?.[0] as EventoEncontrado | undefined
     if (!evento) {
-      setHintEventoNoDisponible(true)
-      form.setError('root', {
-        message: 'Código no válido o el evento no está abierto para jurados.',
+      codigoForm.setError('root', {
+        message: 'Código no válido. Verifica que el código sea correcto y que el evento esté abierto para jurados.',
       })
       return
     }
+    setEventoEncontrado(evento)
+    setCodigoUsado(parsed.codigo)
+    setStep('nombre')
+  }
 
-    const { data: juradoRows, error: e2 } = await supabase.rpc(
-      'registrar_o_buscar_jurado',
-      {
-        p_evento_id: evento.id,
-        p_nombre_completo: parsed.nombreCompleto.trim(),
-      },
-    )
-    if (e2) {
-      form.setError('root', { message: e2.message })
+  async function onSubmitNombre(values: NombreValues) {
+    if (!eventoEncontrado) return
+    const { data: juradoRows, error } = await supabase.rpc('registrar_o_buscar_jurado', {
+      p_evento_id: eventoEncontrado.id,
+      p_nombre_completo: values.nombreCompleto.trim(),
+    })
+    if (error) {
+      nombreForm.setError('root', { message: error.message })
       return
     }
     const row = juradoRows?.[0]
     if (!row) {
-      form.setError('root', { message: 'No se pudo registrar el jurado.' })
+      nombreForm.setError('root', { message: 'No se pudo registrar el jurado. Contacta al organizador.' })
       return
     }
-
-    const ev = evento as { id: string; nombre: string; logo_url?: string | null }
     const next: JuradoSession = {
-      eventoId: ev.id,
-      eventoNombre: ev.nombre,
-      codigoAcceso: parsed.codigo,
+      eventoId: eventoEncontrado.id,
+      eventoNombre: eventoEncontrado.nombre,
+      codigoAcceso: codigoUsado,
       juradoId: row.jurado_id,
       nombreCompleto: row.nombre_completo,
       orden: row.orden,
       tokenSesion: row.token_sesion as string,
-      logoUrl: ev.logo_url ?? null,
+      logoUrl: eventoEncontrado.logo_url ?? null,
     }
     setSession(next)
     navigate('/jurado/panel', { replace: true })
   }
 
+  function volverAlCodigo() {
+    setStep('codigo')
+    setEventoEncontrado(null)
+    nombreForm.reset()
+    nombreForm.clearErrors()
+  }
+
   return (
     <AuthGateLayout
       title="Ingreso jurado"
-      description="Código del evento (6 caracteres) y tu nombre completo tal como figura en la lista oficial."
+      description={
+        step === 'codigo'
+          ? 'Ingresa el código del evento (6 caracteres) para verificar tu acceso.'
+          : 'Confirma tu nombre tal como figura en la lista oficial del concurso.'
+      }
       footer={
         <p className="text-center text-sm text-muted-foreground">
           <Button variant="link" className="h-auto p-0 text-muted-foreground" asChild>
@@ -116,68 +141,154 @@ export function JuradoLoginPage() {
         </p>
       }
     >
-      {form.formState.errors.root && (
-        <Alert variant="destructive" className="mb-4">
-          <AlertTitle>No se pudo ingresar</AlertTitle>
-          <AlertDescription className="space-y-3">
-            <p>{form.formState.errors.root.message}</p>
-            {hintEventoNoDisponible && (
-              <p className="text-sm font-normal opacity-95">
-                Si el concurso ya terminó, los resultados oficiales los comunica la organización.
-              </p>
-            )}
-          </AlertDescription>
-        </Alert>
+      {/* Paso 1: Código del evento */}
+      {step === 'codigo' && (
+        <>
+          {codigoForm.formState.errors.root && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertTitle>No se pudo verificar el código</AlertTitle>
+              <AlertDescription>
+                {codigoForm.formState.errors.root.message}
+              </AlertDescription>
+            </Alert>
+          )}
+          <Form {...codigoForm}>
+            <form
+              className="space-y-5"
+              onSubmit={codigoForm.handleSubmit(onSubmitCodigo)}
+              noValidate
+            >
+              <FormField
+                control={codigoForm.control}
+                name="codigo"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Código del evento</FormLabel>
+                    <FormControl>
+                      <Input
+                        autoComplete="off"
+                        inputMode="text"
+                        autoCapitalize="characters"
+                        maxLength={6}
+                        placeholder="XXXXXX"
+                        className="h-11 rounded-lg font-mono text-base uppercase tracking-widest shadow-sm"
+                        {...field}
+                        onChange={(e) =>
+                          field.onChange(e.target.value.toUpperCase().replace(/\s/g, ''))
+                        }
+                      />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">
+                      6 caracteres — letras y números
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button
+                type="submit"
+                className="h-11 w-full rounded-lg text-base font-medium"
+                disabled={codigoForm.formState.isSubmitting}
+              >
+                {codigoForm.formState.isSubmitting ? (
+                  <>
+                    <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                    Buscando evento…
+                  </>
+                ) : (
+                  'Verificar código'
+                )}
+              </Button>
+            </form>
+          </Form>
+        </>
       )}
 
-      <Form {...form}>
-        <form className="space-y-5" onSubmit={form.handleSubmit(onSubmit)} noValidate>
-          <FormField
-            control={form.control}
-            name="codigo"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Código del evento</FormLabel>
-                <FormControl>
-                  <Input
-                    autoComplete="off"
-                    className="h-11 rounded-lg font-mono text-base uppercase tracking-wider shadow-sm"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
+      {/* Paso 2: Nombre completo (tras verificar el evento) */}
+      {step === 'nombre' && eventoEncontrado && (
+        <>
+          {/* Confirmación del evento encontrado */}
+          <div className="mb-5 rounded-lg border border-border bg-muted/50 p-4">
+            {eventoEncontrado.logo_url && (
+              <img
+                src={eventoEncontrado.logo_url}
+                alt=""
+                className="mb-2 h-8 max-w-[8rem] object-contain object-left"
+                aria-hidden
+              />
             )}
-          />
-          <FormField
-            control={form.control}
-            name="nombreCompleto"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Nombre completo</FormLabel>
-                <FormControl>
-                  <Input autoComplete="name" className="h-11 rounded-lg text-base shadow-sm" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <Button
-            type="submit"
-            className="h-11 w-full rounded-lg text-base font-medium"
-            disabled={form.formState.isSubmitting}
-          >
-            {form.formState.isSubmitting ? (
-              <>
-                <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
-                Validando…
-              </>
-            ) : (
-              'Ingresar'
-            )}
-          </Button>
-        </form>
-      </Form>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Evento verificado
+            </p>
+            <p className="mt-0.5 text-sm font-semibold text-foreground leading-snug">
+              {eventoEncontrado.nombre}
+            </p>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="mt-2 h-auto px-0 py-0 text-xs text-muted-foreground hover:text-foreground"
+              onClick={volverAlCodigo}
+            >
+              <ChevronLeft className="size-3" aria-hidden />
+              Cambiar código
+            </Button>
+          </div>
+
+          {nombreForm.formState.errors.root && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertTitle>No se pudo ingresar</AlertTitle>
+              <AlertDescription>
+                {nombreForm.formState.errors.root.message}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <Form {...nombreForm}>
+            <form
+              className="space-y-5"
+              onSubmit={nombreForm.handleSubmit(onSubmitNombre)}
+              noValidate
+            >
+              <FormField
+                control={nombreForm.control}
+                name="nombreCompleto"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nombre completo</FormLabel>
+                    <FormControl>
+                      <Input
+                        autoComplete="name"
+                        autoFocus
+                        className="h-11 rounded-lg text-base shadow-sm"
+                        {...field}
+                      />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">
+                      Tal como figura en la lista oficial del concurso
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button
+                type="submit"
+                className="h-11 w-full rounded-lg text-base font-medium"
+                disabled={nombreForm.formState.isSubmitting}
+              >
+                {nombreForm.formState.isSubmitting ? (
+                  <>
+                    <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                    Ingresando…
+                  </>
+                ) : (
+                  'Ingresar al concurso'
+                )}
+              </Button>
+            </form>
+          </Form>
+        </>
+      )}
 
       <div className="mt-8 border-t border-border/60 pt-6">
         <ConuroMarketingCta utmMedium="jurado_login" className="text-center text-sm" />

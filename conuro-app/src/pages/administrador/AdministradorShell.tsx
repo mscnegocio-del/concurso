@@ -20,6 +20,11 @@ export function AdministradorShell() {
       brandingLogoUrl={logoUrl}
       brandingAlt={orgNombre}
       onLogout={() => void signOut()}
+      userInfo={
+        perfil
+          ? { name: perfil.nombreCompleto, email: perfil.email, role: 'Coordinador' }
+          : undefined
+      }
       mobileBottomNav={
         <MobilePanelBottomNav>
           <MobileBottomNavItem to="/administrador" end icon={<LayoutDashboard />} label="Coordinación" />

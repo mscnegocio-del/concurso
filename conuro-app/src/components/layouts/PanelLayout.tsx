@@ -21,6 +21,7 @@ function SidebarNav({
   onLogout,
   brandingLogoUrl,
   brandingAlt,
+  userInfo,
 }: {
   title: string
   subNav?: ReactNode
@@ -28,6 +29,7 @@ function SidebarNav({
   onLogout: () => void | Promise<void>
   brandingLogoUrl?: string | null
   brandingAlt?: string
+  userInfo?: { name: string; email: string; role?: string }
 }) {
   const reduceMotion =
     typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
@@ -53,7 +55,20 @@ function SidebarNav({
           <Link to="/">Inicio</Link>
         </Button>
       </div>
-      <div className="mt-auto border-t border-sidebar-border p-4">
+      <div className="mt-auto border-t border-sidebar-border p-4 space-y-3">
+        {userInfo && (
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-sidebar-foreground leading-tight">
+              {userInfo.name}
+            </p>
+            <p className="truncate text-xs text-muted-foreground">{userInfo.email}</p>
+            {userInfo.role && (
+              <span className="mt-1 inline-block rounded-full bg-sidebar-accent px-2 py-0.5 text-xs text-sidebar-accent-foreground">
+                {userInfo.role}
+              </span>
+            )}
+          </div>
+        )}
         <Button
           variant="outline"
           className="w-full border-sidebar-border bg-sidebar text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
@@ -77,6 +92,7 @@ export function PanelLayout({
   mobileBottomNav,
   brandingLogoUrl,
   brandingAlt,
+  userInfo,
 }: {
   title: string
   onLogout: () => void | Promise<void>
@@ -88,6 +104,8 @@ export function PanelLayout({
   brandingLogoUrl?: string | null
   /** Texto alternativo del logo (nombre de la organización). */
   brandingAlt?: string
+  /** Información del usuario autenticado para mostrar en el sidebar. */
+  userInfo?: { name: string; email: string; role?: string }
 }) {
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -108,6 +126,7 @@ export function PanelLayout({
           onLogout={onLogout}
           brandingLogoUrl={brandingLogoUrl}
           brandingAlt={brandingAlt}
+          userInfo={userInfo}
         />
       </aside>
 
@@ -131,6 +150,7 @@ export function PanelLayout({
                   onLogout={onLogout}
                   brandingLogoUrl={brandingLogoUrl}
                   brandingAlt={brandingAlt}
+                  userInfo={userInfo}
                 />
               </SheetContent>
             </Sheet>
