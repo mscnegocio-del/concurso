@@ -15,7 +15,9 @@ import { AdminEventoPage } from '@/pages/admin/AdminEventoPage'
 import { AdminOrganizacionPage } from '@/pages/admin/AdminOrganizacionPage'
 import { AdminPlantillasCriteriosPage } from '@/pages/admin/AdminPlantillasCriteriosPage'
 import { AdminShell } from '@/pages/admin/AdminShell'
-import { AdministradorDashboardPage } from '@/pages/administrador/AdministradorDashboardPage'
+import { AdministradorEventoPage } from '@/pages/administrador/AdministradorEventoPage'
+import { AdministradorHistorialPage } from '@/pages/administrador/AdministradorHistorialPage'
+import { AdministradorInicioPage } from '@/pages/administrador/AdministradorInicioPage'
 import { AdministradorShell } from '@/pages/administrador/AdministradorShell'
 import { HomePage } from '@/pages/HomePage'
 import { JuradoLoginPage } from '@/pages/JuradoLoginPage'
@@ -85,7 +87,9 @@ export default function App() {
                 </RequireAuth>
               }
             >
-              <Route index element={<AdministradorDashboardPage />} />
+              <Route index element={<AdministradorInicioPage />} />
+              <Route path="historial" element={<AdministradorHistorialPage />} />
+              <Route path="evento/:eventoId" element={<AdministradorEventoPage />} />
             </Route>
 
             <Route
