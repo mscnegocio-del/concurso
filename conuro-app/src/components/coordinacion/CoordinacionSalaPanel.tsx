@@ -1,4 +1,4 @@
-import { Copy, Loader2 } from 'lucide-react'
+import { CheckCircle2, Copy, Loader2, Radio } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { SimplePanel } from '@/components/layouts/PanelLayout'
@@ -50,6 +50,8 @@ type RankFila = {
 
 const POLL_MS = 6000
 
+type MobileTab = 'avance' | 'publicar' | 'historial'
+
 type Props = {
   perfil: { id: string; organizacionId: string; email: string }
   orgId: string
@@ -75,6 +77,7 @@ export function CoordinacionSalaPanel({
   const [error, setError] = useState<string | null>(null)
   const [pubBusy, setPubBusy] = useState(false)
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null)
+  const [mobileTab, setMobileTab] = useState<MobileTab>('publicar')
 
   const appOrigin = typeof window !== 'undefined' ? window.location.origin : ''
   const urlPublica = evento ? `${appOrigin}/publico/${evento.codigo_acceso}` : ''
@@ -329,46 +332,256 @@ export function CoordinacionSalaPanel({
     return 'Siguiente revelación'
   })()
 
+  const pubDisabled =
+    pubBusy ||
+    !categoriaSeleccionada ||
+    publicarDeshabilitado ||
+    (modoRevelacion === 'escalonado' && revelacionCompletaSeleccion)
+
+  // ── Sección Sala (info del evento) ───────────────────────────────────
+  const seccionSala = (
+    <SimplePanel>
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sala</p>
+      <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-foreground">{evento.nombre}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Estado: <span className="font-medium text-foreground">{evento.estado}</span>
+            {' · '}Código público:{' '}
+            <span className="inline-flex items-center gap-0.5 align-middle">
+              <span className="font-mono">{evento.codigo_acceso}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-8 shrink-0"
+                aria-label="Copiar código de acceso"
+                onClick={() => void copiarCodigoAcceso()}
+              >
+                <Copy className="size-4" aria-hidden />
+              </Button>
+            </span>
+          </p>
+        </div>
+        {lastSyncedAt && (
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Radio className="size-3 text-green-500 animate-pulse" aria-hidden />
+            {lastSyncedAt.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+          </span>
+        )}
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <p className="text-sm text-muted-foreground break-all">
+          <a href={urlPublica} className="font-mono text-primary underline" target="_blank" rel="noreferrer">
+            {urlPublica}
+          </a>
+        </p>
+        <Button type="button" variant="outline" size="sm" className="gap-2 shrink-0" onClick={() => void copiarUrl()}>
+          <Copy className="size-4 shrink-0" aria-hidden />
+          Copiar URL
+        </Button>
+      </div>
+      {error && (
+        <Alert variant="destructive" className="mt-3">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+    </SimplePanel>
+  )
+
+  // ── Sección Avance ────────────────────────────────────────────────────
+  const seccionAvance = (
+    <SimplePanel>
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Avance</p>
+      <h3 className="mt-2 text-base font-semibold text-foreground">Progreso por categoría</h3>
+      <ul className="mt-4 divide-y divide-border">
+        {progreso.map((r) => {
+          const esp = Number(r.calificaciones_esperadas)
+          const reg = Number(r.calificaciones_registradas)
+          const pct = esp > 0 ? Math.min(100, Math.round((reg / esp) * 100)) : 0
+          const completa = pct === 100
+          const publicada = publicadosSet.has(r.categoria_id)
+          return (
+            <li key={r.categoria_id} className="py-3 text-sm">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2 min-w-0">
+                  {completa ? (
+                    <CheckCircle2 className="size-4 shrink-0 text-green-500" aria-hidden />
+                  ) : (
+                    <span className="size-4 shrink-0" aria-hidden />
+                  )}
+                  <span className="font-medium text-foreground truncate">{r.categoria_nombre}</span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {publicada && (
+                    <Badge variant="secondary" className="text-xs">publicada</Badge>
+                  )}
+                  <span className="text-muted-foreground tabular-nums">
+                    {reg}/{esp}
+                  </span>
+                </div>
+              </div>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+                <div
+                  className={cn('h-full rounded-full transition-all', completa ? 'bg-green-500' : 'bg-primary')}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+      {progreso.length === 0 && <p className="mt-2 text-sm text-muted-foreground">No hay categorías.</p>}
+    </SimplePanel>
+  )
+
+  // ── Sección Publicar ──────────────────────────────────────────────────
+  const seccionPublicar = (
+    <SimplePanel>
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Revisar y publicar</p>
+      <h3 className="mt-2 text-base font-semibold text-foreground">Ranking previo</h3>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Vista previa antes de publicar en pantalla pública. Modo:{' '}
+        <strong>{modoRevelacion === 'escalonado' ? 'Revelación escalonada' : 'Podio completo'}</strong>
+      </p>
+
+      {/* Selector de categoría: chips scrollables */}
+      <div className="mt-4 flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+        {progreso.map((r) => {
+          const selected = r.categoria_id === categoriaSeleccionada
+          const publicada = publicadosSet.has(r.categoria_id)
+          const bloqueada = modoRevelacion === 'escalonado' && !!filaActivaEscalonada && r.categoria_id !== filaActivaEscalonada.categoria_id
+          return (
+            <button
+              key={r.categoria_id}
+              type="button"
+              disabled={bloqueada}
+              onClick={() => setCatPreview(r.categoria_id)}
+              className={cn(
+                'shrink-0 rounded-full border px-3 py-1 text-sm font-medium transition-colors whitespace-nowrap',
+                selected
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-border bg-background text-foreground hover:bg-muted',
+                publicada && !selected && 'border-green-500/50 text-green-700 dark:text-green-400',
+                bloqueada && 'cursor-not-allowed opacity-40',
+              )}
+            >
+              {r.categoria_nombre}
+              {publicada && ' ✓'}
+            </button>
+          )
+        })}
+      </div>
+
+      {selectorBloqueado && (
+        <p className="mt-2 text-sm text-amber-700 dark:text-amber-400">
+          Completa la revelación de <strong>{filaActivaEscalonada?.categoria_nombre}</strong> antes de cambiar.
+        </p>
+      )}
+
+      {calificacionesIncompletas && (
+        <Alert variant="destructive" className="mt-3">
+          <AlertTitle>Calificaciones incompletas</AlertTitle>
+          <AlertDescription>
+            Esta categoría aún no tiene todas las calificaciones. Puedes publicar si el comité lo autoriza.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <ol className="mt-4 list-decimal space-y-1 pl-5 text-sm">
+        {ranking.map((x) => (
+          <li key={x.participante_id}>
+            <span className="text-foreground">{x.nombre_completo}</span>{' '}
+            — <strong>{x.puntaje_final}</strong>
+          </li>
+        ))}
+      </ol>
+      {ranking.length === 0 && categoriaSeleccionada && (
+        <p className="mt-2 text-sm text-muted-foreground">Sin datos de ranking aún.</p>
+      )}
+
+      <div className="mt-6">
+        <PublicarBlock
+          disabled={pubDisabled}
+          busy={pubBusy}
+          yaPublicada={yaPublicadaSeleccion}
+          escalonada={modoRevelacion === 'escalonado'}
+          pasoActual={pasoSeleccionado}
+          pasoMax={maxPaso}
+          label={botonLabel}
+          onClick={() => void publicarCategoria()}
+        />
+      </div>
+    </SimplePanel>
+  )
+
+  // ── Sección Historial ─────────────────────────────────────────────────
+  const seccionHistorial = (
+    <SimplePanel>
+      <h3 className="text-base font-semibold text-foreground">Historial de publicaciones</h3>
+      <ul className="mt-3 space-y-3 text-sm">
+        {historial.map((h) => {
+          const nombre =
+            progreso.find((p) => p.categoria_id === h.categoria_id)?.categoria_nombre ?? h.categoria_id
+          return (
+            <li
+              key={`${h.categoria_id}-${h.publicado_at}`}
+              className="flex flex-col gap-1 border-b border-border/60 pb-3 last:border-0"
+            >
+              <div className="flex flex-wrap justify-between gap-2">
+                <span className="font-medium text-foreground">{nombre}</span>
+                <span className="text-muted-foreground">
+                  {new Date(h.publicado_at).toLocaleString('es-PE')}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Por: {h.nombre_publicador ?? 'Sin registro'}
+              </p>
+            </li>
+          )
+        })}
+      </ul>
+      {historial.length === 0 && (
+        <p className="text-sm text-muted-foreground">Ninguna categoría publicada aún.</p>
+      )}
+    </SimplePanel>
+  )
+
   return (
-    <div className={cn('space-y-6', 'pb-24 lg:pb-6')}>
-      {/* ── Alerts section (full-width, stacked) ─────────────────── */}
-      <div className="space-y-4">
-        {avisoAdmin ? (
+    <div className="space-y-4">
+      {/* ── Alertas ────────────────────────────────────────────────── */}
+      <div className="space-y-3">
+        {avisoAdmin && (
           <Alert>
             <AlertTitle>Coordinación de sala</AlertTitle>
             <AlertDescription>{avisoAdmin}</AlertDescription>
           </Alert>
-        ) : null}
-
+        )}
         {historial.length > 0 && (
           <Alert variant="success">
             <AlertTitle>Estado en pantalla pública</AlertTitle>
             <AlertDescription>
-              {historial.length} categoría{historial.length === 1 ? '' : 's'} ya publicada
-              {historial.length === 1 ? '' : 's'} en el proyector. El historial completo está al final de la página.
+              {historial.length} categoría{historial.length === 1 ? '' : 's'} publicada
+              {historial.length === 1 ? '' : 's'}.
             </AlertDescription>
           </Alert>
         )}
-
         {evento.estado === 'borrador' && (
           <Alert variant="destructive">
             <AlertTitle>Evento en borrador</AlertTitle>
             <AlertDescription>
-              Aún no puedes publicar resultados. El administrador debe activar el evento (pasar a abierto) cuando
-              esté lista la configuración.
+              El administrador debe activar el evento para poder publicar resultados.
             </AlertDescription>
           </Alert>
         )}
-
         {(evento.estado === 'cerrado' || evento.estado === 'publicado') && (
           <Alert variant="warning">
             <AlertTitle>Evento {evento.estado}</AlertTitle>
             <AlertDescription>
-              La calificación terminó. Puedes seguir publicando/revelando categorías pendientes en la pantalla pública.
+              La calificación terminó. Puedes seguir publicando categorías pendientes.
             </AlertDescription>
           </Alert>
         )}
-
         {modoRevelacion === 'escalonado' && filaActivaEscalonada && (
           <Alert>
             <AlertTitle>Revelación en progreso</AlertTitle>
@@ -379,218 +592,52 @@ export function CoordinacionSalaPanel({
         )}
       </div>
 
-      {/* ── Panels grid: 1-col mobile, 2-col lg+ ─────────────────── */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <SimplePanel>
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">1 · Sala</p>
-        <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">{evento.nombre}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Estado: <span className="font-medium text-foreground">{evento.estado}</span> · Código público:{' '}
-              <span className="inline-flex items-center gap-0.5 align-middle">
-                <span className="font-mono">{evento.codigo_acceso}</span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-8 shrink-0"
-                  aria-label="Copiar código de acceso"
-                  title="Copiar código"
-                  onClick={() => void copiarCodigoAcceso()}
-                >
-                  <Copy className="size-4" aria-hidden />
-                </Button>
-              </span>
-            </p>
-          </div>
-          {lastSyncedAt && (
-            <Badge variant="secondary" className="shrink-0 font-normal">
-              Avance actualizado{' '}
-              {lastSyncedAt.toLocaleTimeString('es-PE', {
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-              })}
-            </Badge>
-          )}
-        </div>
-        <p className="mt-3 text-sm text-muted-foreground">
-          URL para proyector:{' '}
-          <a
-            href={urlPublica}
-            className="break-all font-mono text-primary underline"
-            target="_blank"
-            rel="noreferrer"
-          >
-            {urlPublica}
-          </a>
-        </p>
-        <Button type="button" variant="outline" size="sm" className="mt-2 gap-2" onClick={() => void copiarUrl()}>
-          <Copy className="size-4 shrink-0" aria-hidden />
-          Copiar URL
-        </Button>
-        {error && (
-          <Alert variant="destructive" className="mt-3">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-      </SimplePanel>
+      {/* ── Info sala (siempre visible) ────────────────────────────── */}
+      {seccionSala}
 
-      <SimplePanel>
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">2 · Avance</p>
-        <h3 className="mt-2 text-base font-semibold text-foreground">Progreso por categoría</h3>
-        <ul className="mt-4 divide-y divide-border">
-          {progreso.map((r) => {
-            const esp = Number(r.calificaciones_esperadas)
-            const reg = Number(r.calificaciones_registradas)
-            const pct = esp > 0 ? Math.min(100, Math.round((reg / esp) * 100)) : 0
+      {/* ── MÓVIL: tabs Avance / Publicar / Historial ─────────────── */}
+      <div className="lg:hidden">
+        <div className="flex border-b border-border">
+          {(['avance', 'publicar', 'historial'] as MobileTab[]).map((tab) => {
+            const labels: Record<MobileTab, string> = {
+              avance: 'Avance',
+              publicar: 'Publicar',
+              historial: 'Historial',
+            }
             return (
-              <li key={r.categoria_id} className="py-3 text-sm">
-                <div className="flex justify-between gap-4">
-                  <span className="font-medium text-foreground">{r.categoria_nombre}</span>
-                  <span className="text-muted-foreground">
-                    {reg}/{esp} ({pct}%)
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setMobileTab(tab)}
+                className={cn(
+                  'flex-1 py-2.5 text-sm font-medium transition-colors',
+                  mobileTab === tab
+                    ? 'border-b-2 border-primary text-primary'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {labels[tab]}
+                {tab === 'historial' && historial.length > 0 && (
+                  <span className="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-xs">
+                    {historial.length}
                   </span>
-                </div>
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
-                  <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
-                </div>
-              </li>
+                )}
+              </button>
             )
           })}
-        </ul>
-        {progreso.length === 0 && <p className="mt-2 text-sm text-muted-foreground">No hay categorías.</p>}
-      </SimplePanel>
-
-      <div className="lg:col-span-2">
-        <SimplePanel>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">3 · Revisar y publicar</p>
-          <h3 className="mt-2 text-base font-semibold text-foreground">Ranking previo (coordinación)</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Vista previa antes de publicar; el público solo ve el podio tras publicar la categoría. Los códigos de
-            participante no se muestran aquí para alinear con la pantalla pública.
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Modo de revelación: <strong>{modoRevelacion === 'escalonado' ? 'Escalonada' : 'Podio completo'}</strong>
-          </p>
-          <div className="mt-4">
-            <label className="text-sm text-muted-foreground" htmlFor="coord-cat">
-              Categoría
-            </label>
-            <select
-              id="coord-cat"
-              value={categoriaSeleccionada}
-              onChange={(e) => setCatPreview(e.target.value)}
-              disabled={modoRevelacion === 'escalonado' && !!filaActivaEscalonada}
-              className="border-input bg-background ring-offset-background focus-visible:ring-ring mt-1 flex h-10 w-full max-w-md rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-            >
-              {progreso.map((r) => (
-                <option key={r.categoria_id} value={r.categoria_id}>
-                  {r.categoria_nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-          {calificacionesIncompletas && (
-            <Alert variant="destructive" className="mt-3">
-              <AlertTitle>Calificaciones incompletas</AlertTitle>
-              <AlertDescription>
-                Esta categoría aún no tiene todas las calificaciones esperadas. Puedes publicar igualmente si el
-                comité lo autoriza; de lo contrario espera a que terminen los jurados.
-              </AlertDescription>
-            </Alert>
-          )}
-          {selectorBloqueado && (
-            <p className="mt-3 text-sm text-amber-700">
-              Completa la revelación de la categoría activa antes de cambiar.
-            </p>
-          )}
-          <ol className="mt-4 list-decimal space-y-1 pl-5 text-sm">
-            {ranking.map((x) => (
-              <li key={x.participante_id}>
-                <span className="text-foreground">{x.nombre_completo}</span> —{' '}
-                <strong>{x.puntaje_final}</strong>
-              </li>
-            ))}
-          </ol>
-          {ranking.length === 0 && categoriaSeleccionada && (
-            <p className="mt-2 text-sm text-muted-foreground">Sin datos de ranking aún.</p>
-          )}
-
-          <div className="mt-6 hidden lg:block">
-            <PublicarBlock
-              disabled={
-                pubBusy ||
-                !categoriaSeleccionada ||
-                publicarDeshabilitado ||
-                (modoRevelacion === 'escalonado' && revelacionCompletaSeleccion)
-              }
-              busy={pubBusy}
-              yaPublicada={yaPublicadaSeleccion}
-              escalonada={modoRevelacion === 'escalonado'}
-              pasoActual={pasoSeleccionado}
-              pasoMax={maxPaso}
-              label={botonLabel}
-              onClick={() => void publicarCategoria()}
-            />
-          </div>
-        </SimplePanel>
+        </div>
+        <div className="mt-4">
+          {mobileTab === 'avance' && seccionAvance}
+          {mobileTab === 'publicar' && seccionPublicar}
+          {mobileTab === 'historial' && seccionHistorial}
+        </div>
       </div>
 
-      <div className="lg:col-span-2">
-        <SimplePanel>
-          <h3 className="text-base font-semibold text-foreground">Historial de publicaciones</h3>
-          <ul className="mt-3 space-y-3 text-sm">
-            {historial.map((h) => {
-              const nombre =
-                progreso.find((p) => p.categoria_id === h.categoria_id)?.categoria_nombre ?? h.categoria_id
-              return (
-                <li
-                  key={`${h.categoria_id}-${h.publicado_at}`}
-                  className="flex flex-col gap-1 border-b border-border/60 pb-3 last:border-0"
-                >
-                  <div className="flex flex-wrap justify-between gap-2">
-                    <span className="font-medium text-foreground">{nombre}</span>
-                    <span className="text-muted-foreground">
-                      {new Date(h.publicado_at).toLocaleString('es-PE')}
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Por: {h.nombre_publicador ?? 'Sin registro'}
-                  </p>
-                </li>
-              )
-            })}
-          </ul>
-          {historial.length === 0 && <p className="text-sm text-muted-foreground">Ninguna categoría publicada aún.</p>}
-        </SimplePanel>
-      </div>
-      </div>
-
-      {/* Por encima del contenido pero debajo del nav móvil del shell (z-50). bottom alineado al padding del main (5rem+safe) para no quedar tapado. */}
-      <div
-        className={cn(
-          'fixed right-0 left-0 z-40 border-t border-border bg-background/95 p-3 backdrop-blur-sm lg:hidden',
-          'bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] shadow-[0_-4px_24px_rgba(0,0,0,0.08)]',
-        )}
-      >
-        <PublicarBlock
-          disabled={
-            pubBusy ||
-            !categoriaSeleccionada ||
-            publicarDeshabilitado ||
-            (modoRevelacion === 'escalonado' && revelacionCompletaSeleccion)
-          }
-          busy={pubBusy}
-          yaPublicada={yaPublicadaSeleccion}
-          escalonada={modoRevelacion === 'escalonado'}
-          pasoActual={pasoSeleccionado}
-          pasoMax={maxPaso}
-          label={botonLabel}
-          onClick={() => void publicarCategoria()}
-          className="w-full"
-        />
+      {/* ── DESKTOP: grid 2 cols ────────────────────────────────────── */}
+      <div className="hidden lg:grid lg:grid-cols-2 lg:gap-6">
+        {seccionAvance}
+        {seccionPublicar}
+        <div className="lg:col-span-2">{seccionHistorial}</div>
       </div>
     </div>
   )
@@ -605,7 +652,6 @@ function PublicarBlock({
   pasoMax,
   label,
   onClick,
-  className,
 }: {
   disabled: boolean
   busy: boolean
@@ -615,13 +661,12 @@ function PublicarBlock({
   pasoMax: number
   label: string
   onClick: () => void
-  className?: string
 }) {
   return (
-    <div className={cn('space-y-2', className)}>
+    <div className="space-y-2">
       {yaPublicada && !escalonada && (
         <p className="text-sm text-amber-800 dark:text-amber-200">
-          Esta categoría ya fue publicada; puedes volver a guardar para actualizar la hora en pantalla.
+          Ya publicada. Puedes volver a guardar para actualizar la hora en pantalla.
         </p>
       )}
       {escalonada && yaPublicada && (
