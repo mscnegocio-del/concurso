@@ -1,4 +1,5 @@
-# CLAUDE.md — Sistema de Calificación para Concursos con Jurados
+# CLAUDE.md — Sistema de Calificación para Concursos con Jurados - ConcursoApp
+
 
 ## Descripción del proyecto
 

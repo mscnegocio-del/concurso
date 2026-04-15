@@ -1,4 +1,4 @@
-# Conuro — Plataforma de concursos con jurados y pantalla pública
+# ConcursoApp — Plataforma de concursos con jurados y pantalla pública 
 
 Sistema web multi-tenant para instituciones que organizan concursos evaluados por jurado: configuración de eventos, calificación en tiempo real, publicación de podio en TV/proyector y exportación oficial (Excel/PDF según plan).
 
