@@ -242,6 +242,37 @@ Configuración ya hecha en Supabase / Auth (ejemplo):
   - ✅ La pantalla proyector se actualiza en **tiempo real** (no espera 5 segundos de polling)
   - ✅ El polling cada 5 segundos funciona como fallback si Realtime falla
 
+### PDF — Acta de Resultados (15/04/2026)
+- **Mejoras de diseño implementadas en `ActaConcursoPdf.tsx`:**
+  - ✅ **Logos centrados:** 110×70 px, con separador vertical (1px) cuando hay ambos logos
+  - ✅ **Jerarquía visual mejorada:** Línea divisoria azul marino; nombre organización 13pt, título evento 17pt bold
+  - ✅ **Metadatos en línea:** Fecha, código de acceso (mayúsculas), temática en fila única con espaciado
+  - ✅ **Sección Criterios de evaluación:** Nueva sección con lista numerada, fondo azul claro (`sectionHeader`)
+  - ✅ **Rankings como tabla:** Columnas Puesto/Participante/Código/Puntaje; filas alternadas con fondo gris; total de participantes por categoría
+  - ✅ **Firmas individuales:** Grid de 2 columnas, línea de firma por jurado con nombre y rol
+  - ✅ **Paginación:** Footer fijo con "Página N de M" usando `pageNumber` y `totalPages`
+- **Parámetros ampliados:** `codigoAcceso` y `criteriosNombres` ahora pasados a componente PDF
+
+### UX — Pantalla Pública (15/04/2026)
+- **Indicador de estado de conexión (esquina superior derecha):**
+  - 🟢 Verde — "Conectado" (Realtime activo)
+  - 🟡 Ámbar — "Sincronizando" (polling cada 5s, Realtime desconectado)
+  - 🔴 Rojo — "Sin conexión" (>10s sin sincronización)
+  - Muestra timestamp: "Actualizado hace 2s" en pequeño
+  - Se detecta automáticamente según estado de listener Realtime (`connectionStatus`, `lastSyncedAt`)
+
+- **Transición suave del podio:**
+  - Fade + scale suave (0.65s, `cubic-bezier(0.22, 1, 0.36, 1)` — easeOut)
+  - Antes: aparecía bruscamente
+  - Respeta `prefers-reduced-motion` para accesibilidad
+  - Implementado en keyframe `publico-podium-enter` con fallback para navegadores sin soporte
+
+- **Indicador de modo escalonado visible:**
+  - Badge debajo de "Última revelación": "Paso X/Y — Revelación progresiva"
+  - Color ámbar si `revelaciónEnProgreso` (paso < puestos_a_premiar)
+  - Color verde si completada (paso == puestos_a_premiar)
+  - Solo aparece en modo escalonado cuando hay categorías publicadas
+
 ---
 
 ## Notas de desarrollo
@@ -249,3 +280,4 @@ Configuración ya hecha en Supabase / Auth (ejemplo):
 - Mobile-first en panel jurado; pantalla pública pensada para 1080p.
 - Cambios de estado críticos y reabrir calificaciones: ideal **Edge Function** con validación server-side (parcialmente cubierto por RPC definer + RLS).
 - **Realtime ahora en:** coordinador (`CoordinacionSalaPanel`), administrador (implícito), público TV (`PublicoEventoPage`).
+- **PDF profesional:** Soporta multi-página con paginación automática; metadatos completos; tabla de resultados con estilos alternados.
