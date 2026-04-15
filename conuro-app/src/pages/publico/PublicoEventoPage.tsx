@@ -533,6 +533,20 @@ export function PublicoEventoPage() {
                 panelRevelacionPrioritario ? 'lg:[flex:4_1_0%]' : 'lg:[flex:1_1_0%]',
               )}
             >
+              {/* Estado del evento */}
+              <div className="mb-3 inline-block">
+                <div
+                  className={cn(
+                    'rounded-full px-3 py-1 text-[clamp(0.65rem,1.6vmin,0.8rem)] font-semibold uppercase tracking-wider',
+                    header?.estado === 'calificando'
+                      ? 'bg-[color-mix(in_srgb,#f59e0b_20%,transparent)] text-[color-mix(in_srgb,#f59e0b_85%,transparent)]'
+                      : 'bg-[color-mix(in_srgb,#ef4444_20%,transparent)] text-[color-mix(in_srgb,#ef4444_85%,transparent)]',
+                  )}
+                >
+                  {header?.estado === 'calificando' ? '⏱️ En calificación' : '🔒 Evento cerrado'}
+                </div>
+              </div>
+
               <h2 className="text-[clamp(1.05rem,2.8vmin,1.5rem)] font-semibold text-[var(--publico-text-heading)]">
                 Última revelación
               </h2>
