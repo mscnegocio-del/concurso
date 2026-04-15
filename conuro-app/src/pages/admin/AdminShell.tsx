@@ -1,10 +1,4 @@
-import { Building2, ClipboardList, History, Home, LayoutList, LogOut, MonitorPlay } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
-import {
-  MobileBottomNavButton,
-  MobileBottomNavItem,
-  MobilePanelBottomNav,
-} from '@/components/layouts/MobilePanelBottomNav'
 import { PanelLayout } from '@/components/layouts/PanelLayout'
 import { useAuth } from '@/hooks/useAuth'
 import { useOrganizacionBranding } from '@/hooks/useOrganizacionBranding'
@@ -108,17 +102,6 @@ export function AdminShell() {
             Organización
           </NavLink>
         </nav>
-      }
-      mobileBottomNav={
-        <MobilePanelBottomNav>
-          <MobileBottomNavItem to="/admin" end icon={<Home />} label="Inicio" />
-          <MobileBottomNavItem to="/admin/evento" icon={<LayoutList />} label="Evento" />
-          <MobileBottomNavItem to="/admin/coordinacion" icon={<MonitorPlay />} label="Sala" />
-          <MobileBottomNavItem to="/admin/historial" icon={<History />} label="Historial" />
-          <MobileBottomNavItem to="/admin/plantillas-criterios" icon={<ClipboardList />} label="Plantillas" />
-          <MobileBottomNavItem to="/admin/organizacion" icon={<Building2 />} label="Org." />
-          <MobileBottomNavButton icon={<LogOut />} label="Salir" onClick={() => void signOut()} />
-        </MobilePanelBottomNav>
       }
     >
       <Outlet />
