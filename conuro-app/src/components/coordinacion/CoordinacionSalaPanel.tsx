@@ -78,6 +78,9 @@ export function CoordinacionSalaPanel({
   const [pubBusy, setPubBusy] = useState(false)
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null)
   const [mobileTab, setMobileTab] = useState<MobileTab>('publicar')
+  const [criterios, setCriterios] = useState<Array<{ id: string; nombre: string; es_criterio_desempate: boolean }>>([])
+  const [desempateActivo, setDesempateActivo] = useState<{ categoriaId: string; lugar: number } | null>(null)
+  const [desempateBusy, setDesempateBusy] = useState(false)
 
   const appOrigin = typeof window !== 'undefined' ? window.location.origin : ''
   const urlPublica = evento ? `${appOrigin}/publico/${evento.codigo_acceso}` : ''
@@ -136,6 +139,17 @@ export function CoordinacionSalaPanel({
   }, [modoRevelacion, progreso, maxPaso])
 
   const pasoSeleccionado = Number(filaSeleccionada?.paso_revelacion ?? 0)
+
+  const empatesDetectados = useMemo(() => {
+    const grupos: Array<{ lugar: number; filas: RankFila[] }> = []
+    ranking.forEach((r, i) => {
+      const empatados = ranking.filter((x) => x.puntaje_final === r.puntaje_final)
+      if (empatados.length > 1 && !grupos.find((g) => g.lugar === i + 1)) {
+        grupos.push({ lugar: i + 1, filas: empatados })
+      }
+    })
+    return grupos
+  }, [ranking])
 
   useEffect(() => {
     if (!evento?.id) return
@@ -208,6 +222,19 @@ export function CoordinacionSalaPanel({
     setProgreso([])
     setHistorial([])
     setCatPreview('')
+    setDesempateActivo(null)
+  }, [evento?.id])
+
+  useEffect(() => {
+    if (!evento?.id) return
+    const loadCriterios = async () => {
+      const { data } = await supabase
+        .from('criterios')
+        .select('id, nombre, es_criterio_desempate')
+        .eq('evento_id', evento.id)
+      setCriterios((data ?? []) as Array<{ id: string; nombre: string; es_criterio_desempate: boolean }>)
+    }
+    void loadCriterios()
   }, [evento?.id])
 
   useEffect(() => {
@@ -271,6 +298,43 @@ export function CoordinacionSalaPanel({
       await cargarProgreso()
     } finally {
       setPubBusy(false)
+    }
+  }
+
+  async function toggleDesempate(lugar: number, filas: RankFila[]) {
+    if (!evento || !categoriaSeleccionada) return
+    const yaActivo = desempateActivo?.lugar === lugar && desempateActivo.categoriaId === categoriaSeleccionada
+    const criterioDesempate = criterios.find((c) => c.es_criterio_desempate)
+    const payload = yaActivo
+      ? null
+      : {
+          puesto: lugar,
+          criterioDesempate: criterioDesempate?.nombre ?? 'Criterio de desempate',
+          participante1: {
+            nombre: filas[0].nombre_completo,
+            puntajeTotal: filas[0].puntaje_final,
+            puntajeCriterio: filas[0].puntaje_final,
+          },
+          participante2: {
+            nombre: filas[1].nombre_completo,
+            puntajeTotal: filas[1].puntaje_final,
+            puntajeCriterio: filas[1].puntaje_final,
+          },
+        }
+    setDesempateBusy(true)
+    try {
+      await supabase.rpc('coordinador_toggle_desempate', {
+        p_evento_id: evento.id,
+        p_categoria_id: categoriaSeleccionada,
+        p_payload: payload,
+      })
+      setDesempateActivo(yaActivo ? null : { categoriaId: categoriaSeleccionada, lugar })
+      toast.success(yaActivo ? 'Desempate ocultado en TV.' : 'Desempate mostrado en TV.')
+    } catch (err) {
+      console.error('Error toggling desempate:', err)
+      toast.error('Error al cambiar el estado del desempate')
+    } finally {
+      setDesempateBusy(false)
     }
   }
 
@@ -512,6 +576,29 @@ export function CoordinacionSalaPanel({
           onClick={() => void publicarCategoria()}
         />
       </div>
+
+      {/* Botones para mostrar/ocultar desempates */}
+      {yaPublicadaSeleccion && empatesDetectados.length > 0 && (
+        <div className="mt-4 space-y-2 border-t border-border pt-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Empates detectados</p>
+          <div className="flex flex-wrap gap-2">
+            {empatesDetectados.map(({ lugar, filas }) => {
+              const activo = desempateActivo?.lugar === lugar && desempateActivo.categoriaId === categoriaSeleccionada
+              return (
+                <Button
+                  key={lugar}
+                  variant={activo ? 'destructive' : 'outline'}
+                  size="sm"
+                  disabled={desempateBusy}
+                  onClick={() => void toggleDesempate(lugar, filas)}
+                >
+                  {activo ? `Ocultar desempate ${lugar}° lugar` : `⚔️ Mostrar desempate ${lugar}° lugar en TV`}
+                </Button>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </SimplePanel>
   )
 

@@ -10,6 +10,7 @@ import {
 } from 'react'
 import { useParams } from 'react-router-dom'
 import { ConuroMarketingCta } from '@/components/marketing/ConuroMarketingCta'
+import { DesempateModal, type DesempateInfo } from '@/components/modals/DesempateModal'
 import { normalizeAccentHex, normalizePlantillaPublica } from '@/lib/publico-theme'
 import { playRevealChime } from '@/lib/sound'
 import { supabase } from '@/lib/supabase'
@@ -43,7 +44,12 @@ type ProgresoFila = {
   calificaciones_esperadas: number
 }
 
-type Publicado = { categoria_id: string; publicado_at: string; paso_revelacion?: number }
+type Publicado = {
+  categoria_id: string
+  publicado_at: string
+  paso_revelacion?: number
+  desempate_activo?: DesempateInfo | null
+}
 
 type PodioFila = {
   puesto: number
@@ -247,6 +253,14 @@ export function PublicoEventoPage() {
       }
     }
   }, [codigo])
+
+  // Derivar modal desempate desde datos publicados (no desde interacción)
+  const desempateModalData = useMemo(() => {
+    for (const p of publicados) {
+      if (p.desempate_activo) return p.desempate_activo as DesempateInfo
+    }
+    return null
+  }, [publicados])
 
   useEffect(() => {
     prevPubCount.current = 0
@@ -612,6 +626,15 @@ export function PublicoEventoPage() {
             />
           </footer>
         </div>
+
+        {/* Modal de desempate (controlado desde admin vía Realtime) */}
+        <DesempateModal
+          isOpen={!!desempateModalData}
+          desempate={desempateModalData}
+          onClose={() => {}}
+          isDark={plantillaTv === 'oscuro'}
+          accentColor={normalizeAccentHex(header?.color_accento_hex)}
+        />
       </PublicoEscaladoViewport>
     </main>
   )
