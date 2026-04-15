@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 type Props = {
   /** Ícono o marca visual sobre el eyebrow (opcional). */
   logo?: ReactNode
-  /** Marca pequeña sobre el título (p. ej. Conuro). */
+  /** Marca pequeña sobre el título (p. ej. ConcursoAPP). */
   eyebrow?: string
   title: string
   description?: ReactNode
@@ -19,7 +19,7 @@ type Props = {
  */
 export function AuthGateLayout({
   logo,
-  eyebrow = 'Conuro',
+  eyebrow = 'ConcursoAPP',
   title,
   description,
   children,

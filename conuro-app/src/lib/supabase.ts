@@ -5,7 +5,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY ?? ''
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn(
-    '[conuro] Configura VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY en .env (ver .env.example).',
+    '[ConcursoAPP] Configura VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY en .env (ver .env.example).',
   )
 }
 

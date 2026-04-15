@@ -36,7 +36,7 @@ function SidebarNav({
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
       <div className="border-b border-sidebar-border px-4 py-4">
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Conuro</p>
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">ConcursoAPP</p>
         {brandingLogoUrl ? (
           <img
             src={brandingLogoUrl}

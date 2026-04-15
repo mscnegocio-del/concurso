@@ -34,7 +34,7 @@ export function ConuroMarketingCta({ utmMedium, className, darkSurface, publicoL
           !darkSurface && !publicoLight && 'text-primary',
         )}
       >
-        Conuro es gratuito para empezar
+        ConcursoAPP es gratuito para empezar
       </a>
       {' — gestión, jurados y pantalla pública.'}
     </p>

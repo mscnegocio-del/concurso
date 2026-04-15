@@ -1,4 +1,4 @@
-const prefix = 'conuro_org_evento_foco_'
+const prefix = 'ConcursoAPP_org_evento_foco_'
 
 export function getStoredEventoFoco(orgId: string): string | null {
   try {
