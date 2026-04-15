@@ -9,11 +9,16 @@ import { PanelLayout } from '@/components/layouts/PanelLayout'
 import { useAuth } from '@/hooks/useAuth'
 
 export function SuperShell() {
-  const { signOut } = useAuth()
+  const { signOut, perfil } = useAuth()
   return (
     <PanelLayout
       title="Super administración"
       onLogout={() => void signOut()}
+      userInfo={
+        perfil
+          ? { name: perfil.nombreCompleto, email: perfil.email, role: 'Super administrador' }
+          : undefined
+      }
       mobileBottomNav={
         <MobilePanelBottomNav>
           <MobileBottomNavItem to="/" end icon={<Home />} label="Inicio" />

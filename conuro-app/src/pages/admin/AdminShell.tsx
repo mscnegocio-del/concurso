@@ -21,6 +21,11 @@ export function AdminShell() {
       brandingLogoUrl={logoUrl}
       brandingAlt={orgNombre}
       onLogout={() => void signOut()}
+      userInfo={
+        perfil
+          ? { name: perfil.nombreCompleto, email: perfil.email, role: 'Administrador' }
+          : undefined
+      }
       subNav={
         <nav className="flex flex-col gap-1">
           <NavLink
