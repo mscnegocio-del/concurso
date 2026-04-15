@@ -120,6 +120,7 @@ export function AdminHistorialPage() {
     const modoRevelacionPodio = String(fd.get('modo_revelacion_podio') ?? 'simultaneo') === 'escalonado'
       ? 'escalonado'
       : 'simultaneo'
+    const tieneTV = String(fd.get('tiene_tv_publica') ?? 'true') !== 'false'
     const plantillaId = String(fd.get('plantilla_criterios_id') ?? '').trim()
     setCreateBusy(true)
     try {
@@ -129,6 +130,7 @@ export function AdminHistorialPage() {
         fecha,
         puestos,
         modoRevelacionPodio,
+        tieneTV,
       })
       if (errMsg || !data) {
         setError(errMsg ?? 'Error al crear.')
@@ -144,6 +146,7 @@ export function AdminHistorialPage() {
           nombre: data.nombre,
           plantilla_criterios_id: plantillaId || null,
           modo_revelacion_podio: modoRevelacionPodio,
+          tiene_tv_publica: tieneTV,
         },
       })
       if (plantillaId) {
@@ -229,6 +232,18 @@ export function AdminHistorialPage() {
                 >
                   <option value="simultaneo">Mostrar podio completo</option>
                   <option value="escalonado">Escalonada (3→2→1 / 2→1)</option>
+                </select>
+              </div>
+              <div className="w-full space-y-2 sm:w-40">
+                <Label htmlFor="hist-tv">Pantalla pública (TV)</Label>
+                <select
+                  id="hist-tv"
+                  name="tiene_tv_publica"
+                  defaultValue="true"
+                  className="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                >
+                  <option value="true">Sí (con TV)</option>
+                  <option value="false">No (sin TV)</option>
                 </select>
               </div>
               <Button type="submit" disabled={createBusy} className="w-full sm:w-auto">

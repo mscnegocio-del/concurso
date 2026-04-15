@@ -52,6 +52,8 @@ type Evento = {
   modo_revelacion_podio: 'simultaneo' | 'escalonado' | string
   plantilla_publica: string
   color_accento_hex: string | null
+  tiene_tv_publica?: boolean
+  flyer_url?: string | null
 }
 
 export function AdminEventoPage() {
@@ -75,7 +77,7 @@ export function AdminEventoPage() {
     const { data, error: e } = await supabase
       .from('eventos')
       .select(
-        'id, organizacion_id, nombre, descripcion, fecha, estado, codigo_acceso, puestos_a_premiar, modo_revelacion_podio, plantilla_publica, color_accento_hex',
+        'id, organizacion_id, nombre, descripcion, fecha, estado, codigo_acceso, puestos_a_premiar, modo_revelacion_podio, plantilla_publica, color_accento_hex, tiene_tv_publica, flyer_url',
       )
       .eq('id', eventoId)
       .eq('organizacion_id', orgId)
@@ -167,12 +169,20 @@ export function AdminEventoPage() {
         </Alert>
       )}
       <EventoCabecera evento={evento} onReload={() => void cargar()} setError={setError} />
-      <SeccionPantallaPublica
+      <SeccionToggleTV
         evento={evento}
         usuarioId={perfil.id}
         onSaved={() => void cargar()}
         setError={setError}
       />
+      {(evento.tiene_tv_publica ?? true) && (
+        <SeccionPantallaPublica
+          evento={evento}
+          usuarioId={perfil.id}
+          onSaved={() => void cargar()}
+          setError={setError}
+        />
+      )}
       <SeccionCategorias eventoId={evento.id} estado={evento.estado} onChanged={despuesDeCambioCategorias} />
       <SeccionCriterios
         eventoId={evento.id}
@@ -337,6 +347,8 @@ function SeccionPantallaPublica({
   const [modoRevelacion, setModoRevelacion] = useState<'simultaneo' | 'escalonado'>(
     evento.modo_revelacion_podio === 'escalonado' ? 'escalonado' : 'simultaneo',
   )
+  const [busyFlyer, setBusyFlyer] = useState(false)
+  const flyerInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     setPlantilla(normalizePlantillaPublica(evento.plantilla_publica))
@@ -390,6 +402,88 @@ function SeccionPantallaPublica({
       onSaved()
     } finally {
       setBusy(false)
+    }
+  }
+
+  async function subirFlyer(file: File) {
+    setError(null)
+    const MIME_VALID = ['image/jpeg', 'image/png', 'image/webp']
+    const MAX_SIZE = 2 * 1024 * 1024
+
+    if (!MIME_VALID.includes(file.type)) {
+      setError('Flyer: solo JPEG, PNG o WebP.')
+      return
+    }
+    if (file.size > MAX_SIZE) {
+      setError('Flyer: máximo 2 MB.')
+      return
+    }
+
+    setBusyFlyer(true)
+    try {
+      const ext = file.type === 'image/jpeg' ? 'jpg' : file.type === 'image/png' ? 'png' : 'webp'
+      const path = `${evento.organizacion_id}/${evento.id}/flyer-${Date.now()}.${ext}`
+
+      const { error: uploadErr } = await supabase.storage
+        .from('eventos-flyers')
+        .upload(path, file, { upsert: false })
+      if (uploadErr) {
+        setError(`Subida fallida: ${uploadErr.message}`)
+        return
+      }
+
+      const { data: urlData } = supabase.storage.from('eventos-flyers').getPublicUrl(path)
+      const flyerUrl = urlData.publicUrl
+
+      const { error: updateErr } = await supabase
+        .from('eventos')
+        .update({ flyer_url: flyerUrl })
+        .eq('id', evento.id)
+      if (updateErr) {
+        setError(`BD: ${updateErr.message}`)
+        return
+      }
+
+      await registrarAuditoria({
+        organizacionId: evento.organizacion_id,
+        eventoId: evento.id,
+        usuarioId,
+        accion: 'evento_flyer_subido',
+        detalle: { flyer_url: flyerUrl },
+      })
+      toast.success('Flyer subido')
+      onSaved()
+    } finally {
+      setBusyFlyer(false)
+      if (flyerInputRef.current) {
+        flyerInputRef.current.value = ''
+      }
+    }
+  }
+
+  async function quitarFlyer() {
+    setError(null)
+    setBusyFlyer(true)
+    try {
+      const { error: err } = await supabase
+        .from('eventos')
+        .update({ flyer_url: null })
+        .eq('id', evento.id)
+      if (err) {
+        setError(err.message)
+        return
+      }
+      await registrarAuditoria({
+        organizacionId: evento.organizacion_id,
+        eventoId: evento.id,
+        usuarioId,
+        accion: 'evento_flyer_quitado',
+        detalle: {},
+      })
+      toast.success('Flyer quitado')
+      onSaved()
+    } finally {
+      setBusyFlyer(false)
     }
   }
 
@@ -492,6 +586,70 @@ function SeccionPantallaPublica({
           El evento está cerrado o publicado; la plantilla TV no se puede editar desde aquí.
         </p>
       )}
+
+      {/* Subsección: Imagen / Flyer del evento */}
+      <div className="mt-6 border-t border-border pt-4">
+        <h4 className="text-sm font-semibold text-foreground">Imagen / Flyer del evento (opcional)</h4>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Muestra a pantalla completa cuando el evento está en estado «Abierto» (sala de espera).
+        </p>
+
+        {evento.flyer_url && (
+          <div className="mt-3">
+            <img src={evento.flyer_url} alt="Flyer" className="h-20 w-auto rounded border border-border" />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="mt-2 text-destructive"
+              onClick={() => void quitarFlyer()}
+              disabled={busyFlyer}
+            >
+              {busyFlyer ? (
+                <>
+                  <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                  Quitando…
+                </>
+              ) : (
+                'Quitar flyer'
+              )}
+            </Button>
+          </div>
+        )}
+
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <input
+            ref={flyerInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.currentTarget.files?.[0]
+              if (file) void subirFlyer(file)
+            }}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => flyerInputRef.current?.click()}
+            disabled={busyFlyer}
+          >
+            {busyFlyer ? (
+              <>
+                <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                Subiendo…
+              </>
+            ) : (
+              'Seleccionar flyer'
+            )}
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            JPEG, PNG o WebP. Máx. 2 MB.
+          </p>
+        </div>
+      </div>
+
       <Button type="button" className="mt-4" disabled={!puedeEditarTv || busy} onClick={() => void guardarTv()}>
         {busy ? (
           <>
@@ -1741,6 +1899,80 @@ function SeccionEstado({
             Cerrar calificación
           </button>
         )}
+      </div>
+    </SimplePanel>
+  )
+}
+
+function SeccionToggleTV({
+  evento,
+  usuarioId,
+  onSaved,
+  setError,
+}: {
+  evento: Evento
+  usuarioId: string
+  onSaved: () => void
+  setError: (s: string | null) => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const tieneTV = evento.tiene_tv_publica ?? true
+
+  async function toggle() {
+    setError(null)
+    setBusy(true)
+    try {
+      const { error: err } = await supabase
+        .from('eventos')
+        .update({ tiene_tv_publica: !tieneTV })
+        .eq('id', evento.id)
+      if (err) {
+        setError(err.message)
+        return
+      }
+      await registrarAuditoria({
+        organizacionId: evento.organizacion_id,
+        eventoId: evento.id,
+        usuarioId,
+        accion: 'evento_tv_publica_toggle',
+        detalle: { anterior: tieneTV, nuevo: !tieneTV },
+      })
+      onSaved()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <SimplePanel>
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h3 className="text-lg font-semibold text-foreground">Pantalla pública (TV)</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Estado: <strong>{tieneTV ? 'Activada' : 'Desactivada'}</strong>
+          </p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {tieneTV
+              ? 'El evento se mostrará en pantalla pública (proyector). Los resultados publicados aparecerán en TV.'
+              : 'El evento no tiene pantalla pública. Los resultados publicados se registran en historial y exportaciones, pero no en TV.'}
+          </p>
+        </div>
+        <Button
+          onClick={() => void toggle()}
+          disabled={busy}
+          variant={tieneTV ? 'default' : 'outline'}
+        >
+          {busy ? (
+            <>
+              <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+              Cambiando…
+            </>
+          ) : tieneTV ? (
+            'Desactivar TV'
+          ) : (
+            'Activar TV'
+          )}
+        </Button>
       </div>
     </SimplePanel>
   )

@@ -1,6 +1,7 @@
 import { CheckCircle2, Copy, Loader2, Radio } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
+import { DesempateInlinePanel } from '@/components/coordinacion/DesempateInlinePanel'
 import { SimplePanel } from '@/components/layouts/PanelLayout'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -18,6 +19,7 @@ export type CoordinacionEvento = {
   codigo_acceso: string
   puestos_a_premiar: number
   modo_revelacion_podio?: 'simultaneo' | 'escalonado' | string
+  tiene_tv_publica?: boolean
 }
 
 type ProgresoFila = {
@@ -403,7 +405,17 @@ export function CoordinacionSalaPanel({
   const yaPublicadaSeleccion = publicadosSet.has(categoriaSeleccionada)
   const revelacionCompletaSeleccion = yaPublicadaSeleccion && pasoSeleccionado >= maxPaso
 
+  const sinTV = !(evento?.tiene_tv_publica ?? true)
   const botonLabel = (() => {
+    if (sinTV) {
+      if (modoRevelacion === 'simultaneo') {
+        return pubBusy ? 'Registrando…' : 'Registrar resultados de categoría'
+      }
+      if (pubBusy) return 'Registrando…'
+      if (!yaPublicadaSeleccion || pasoSeleccionado <= 0) return 'Iniciar registro de resultados'
+      if (revelacionCompletaSeleccion) return 'Registro completo'
+      return 'Siguiente registro'
+    }
     if (modoRevelacion === 'simultaneo') {
       return pubBusy ? 'Publicando…' : 'Publicar categoría en pantalla pública'
     }
@@ -451,17 +463,23 @@ export function CoordinacionSalaPanel({
           </span>
         )}
       </div>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <p className="text-sm text-muted-foreground break-all">
-          <a href={urlPublica} className="font-mono text-primary underline" target="_blank" rel="noreferrer">
-            {urlPublica}
-          </a>
+      {(evento.tiene_tv_publica ?? true) ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <p className="text-sm text-muted-foreground break-all">
+            <a href={urlPublica} className="font-mono text-primary underline" target="_blank" rel="noreferrer">
+              {urlPublica}
+            </a>
+          </p>
+          <Button type="button" variant="outline" size="sm" className="gap-2 shrink-0" onClick={() => void copiarUrl()}>
+            <Copy className="size-4 shrink-0" aria-hidden />
+            Copiar URL
+          </Button>
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-muted-foreground">
+          Este evento no tiene pantalla pública activa. Los resultados publicados quedan registrados en historial y exportaciones.
         </p>
-        <Button type="button" variant="outline" size="sm" className="gap-2 shrink-0" onClick={() => void copiarUrl()}>
-          <Copy className="size-4 shrink-0" aria-hidden />
-          Copiar URL
-        </Button>
-      </div>
+      )}
       {error && (
         <Alert variant="destructive" className="mt-3">
           <AlertDescription>{error}</AlertDescription>
@@ -594,26 +612,35 @@ export function CoordinacionSalaPanel({
         />
       </div>
 
-      {/* Botones para mostrar/ocultar desempates */}
+      {/* Botones para mostrar/ocultar desempates (si hay TV) o panel inline (si no hay TV) */}
       {yaPublicadaSeleccion && empatesDetectados.length > 0 && (
-        <div className="mt-4 space-y-2 border-t border-border pt-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Empates detectados</p>
-          <div className="flex flex-wrap gap-2">
-            {empatesDetectados.map(({ lugar, filas }) => {
-              const activo = desempateActivo?.lugar === lugar && desempateActivo.categoriaId === categoriaSeleccionada
-              return (
-                <Button
-                  key={lugar}
-                  variant={activo ? 'destructive' : 'outline'}
-                  size="sm"
-                  disabled={desempateBusy}
-                  onClick={() => void toggleDesempate(lugar, filas)}
-                >
-                  {activo ? `Ocultar desempate ${lugar}° lugar` : `⚔️ Mostrar desempate ${lugar}° lugar en TV`}
-                </Button>
-              )
-            })}
-          </div>
+        <div className="mt-4 border-t border-border pt-4">
+          {sinTV ? (
+            <DesempateInlinePanel
+              empatesDetectados={empatesDetectados}
+              criterioDesempate={criterios.find(c => c.es_criterio_desempate) ?? null}
+            />
+          ) : (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Empates detectados</p>
+              <div className="flex flex-wrap gap-2">
+                {empatesDetectados.map(({ lugar, filas }) => {
+                  const activo = desempateActivo?.lugar === lugar && desempateActivo.categoriaId === categoriaSeleccionada
+                  return (
+                    <Button
+                      key={lugar}
+                      variant={activo ? 'destructive' : 'outline'}
+                      size="sm"
+                      disabled={desempateBusy}
+                      onClick={() => void toggleDesempate(lugar, filas)}
+                    >
+                      {activo ? `Ocultar desempate ${lugar}° lugar` : `⚔️ Mostrar desempate ${lugar}° lugar en TV`}
+                    </Button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </SimplePanel>

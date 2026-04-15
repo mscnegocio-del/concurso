@@ -31,6 +31,7 @@ type EventoHeader = {
   plantilla_publica?: string
   color_accento_hex?: string | null
   modo_revelacion_podio?: 'simultaneo' | 'escalonado' | string
+  flyer_url?: string | null
 }
 
 type ProgresoFila = {
@@ -371,6 +372,8 @@ export function PublicoEventoPage() {
   /** En escritorio/TV: priorizar panel derecho si hay podio o categoría publicada sin filas aún. */
   const panelRevelacionPrioritario = hayPodioPublicado || publicadoSinPodio
 
+  const mostrarFlyer = header.estado === 'abierto' && !!header.flyer_url
+
   const plantillaTv = normalizePlantillaPublica(header.plantilla_publica)
   const accentOverride = normalizeAccentHex(header.color_accento_hex)
   const accentStyle = accentOverride
@@ -469,11 +472,20 @@ export function PublicoEventoPage() {
           </div>
           </header>
 
-          <section
-            className={cn(
-              'mt-[clamp(1rem,3dvh,2.5rem)] flex min-h-0 flex-1 flex-col gap-[clamp(1rem,3vmin,2.5rem)] lg:flex-row lg:gap-[clamp(0.75rem,2vmin,1.5rem)]',
-            )}
-          >
+          {mostrarFlyer ? (
+            <div className="mt-[clamp(1rem,3dvh,2.5rem)] flex min-h-0 flex-1 items-center justify-center">
+              <img
+                src={header.flyer_url!}
+                alt={`Flyer de ${header.nombre}`}
+                className="max-h-full max-w-full object-contain"
+              />
+            </div>
+          ) : (
+            <section
+              className={cn(
+                'mt-[clamp(1rem,3dvh,2.5rem)] flex min-h-0 flex-1 flex-col gap-[clamp(1rem,3vmin,2.5rem)] lg:flex-row lg:gap-[clamp(0.75rem,2vmin,1.5rem)]',
+              )}
+            >
             <div
               className={cn(
                 'flex min-h-0 min-w-0 flex-col overflow-y-auto',
@@ -613,7 +625,8 @@ export function PublicoEventoPage() {
                 </div>
               )}
             </div>
-          </section>
+            </section>
+          )}
           {/*
             Franja inferior discreta en proyector/TV: texto mínimo y opacidad baja para no competir con el podio.
           */}
