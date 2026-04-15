@@ -17,6 +17,7 @@ type EventoExport = {
   fecha: string
   estado: string
   puestos_a_premiar: number
+  codigo_acceso: string
 }
 
 export function AdminExportaciones({
@@ -115,7 +116,7 @@ export function AdminExportaciones({
         nombre: r.nombre_completo,
         puntaje: r.puntaje_final,
       }))
-      categoriasPdf.push({ nombre: cat.nombre, ganadores })
+      categoriasPdf.push({ nombre: cat.nombre, totalParticipantes: plist.length, ganadores })
     }
 
     return {
@@ -170,6 +171,8 @@ export function AdminExportaciones({
         logoPjUrl: d.org.logo_url,
         logoSubsedeUrl: d.org.logo_subsede_url,
         descripcion: evento.descripcion,
+        codigoAcceso: evento.codigo_acceso,
+        criteriosNombres: d.criterios.map((c) => c.nombre),
         jurados: d.jurados.map((j) => j.nombre_completo),
         categorias: d.categoriasPdf,
       })

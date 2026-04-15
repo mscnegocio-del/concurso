@@ -12,6 +12,8 @@ export async function descargarActaPdf(params: {
   logoPjUrl: string | null
   logoSubsedeUrl: string | null
   descripcion: string | null
+  codigoAcceso: string
+  criteriosNombres: string[]
   jurados: string[]
   categorias: ActaCategoriaPdf[]
 }): Promise<{ filename: string }> {
@@ -28,6 +30,8 @@ export async function descargarActaPdf(params: {
       eventoNombre={params.nombreEvento}
       fechaTexto={fechaTexto}
       descripcion={params.descripcion}
+      codigoAcceso={params.codigoAcceso}
+      criteriosNombres={params.criteriosNombres}
       jurados={params.jurados}
       categorias={params.categorias}
     />,
