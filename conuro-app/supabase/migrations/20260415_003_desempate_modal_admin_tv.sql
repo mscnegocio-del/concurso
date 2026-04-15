@@ -80,10 +80,10 @@ begin
   ),
   criterio_json as (
     select
-      participante_id,
-      jsonb_object_agg(criterio_id::text, promedio_criterio) as promedio_por_criterio
+      por_jurado_criterio.participante_id,
+      jsonb_object_agg(por_jurado_criterio.criterio_id::text, por_jurado_criterio.promedio_criterio) as promedio_por_criterio
     from por_jurado_criterio
-    group by participante_id
+    group by por_jurado_criterio.participante_id
   )
   select
     pf.participante_id,

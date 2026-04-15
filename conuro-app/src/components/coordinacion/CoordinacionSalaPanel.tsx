@@ -143,10 +143,16 @@ export function CoordinacionSalaPanel({
 
   const empatesDetectados = useMemo(() => {
     const grupos: Array<{ lugar: number; filas: RankFila[] }> = []
+    const puntajesProcesados = new Set<number>()
+
     ranking.forEach((r, i) => {
+      const puntaje = Number(r.puntaje_final)
+      if (puntajesProcesados.has(puntaje)) return
+
       const empatados = ranking.filter((x) => x.puntaje_final === r.puntaje_final)
-      if (empatados.length > 1 && !grupos.find((g) => g.lugar === i + 1)) {
+      if (empatados.length > 1) {
         grupos.push({ lugar: i + 1, filas: empatados })
+        puntajesProcesados.add(puntaje)
       }
     })
     return grupos
