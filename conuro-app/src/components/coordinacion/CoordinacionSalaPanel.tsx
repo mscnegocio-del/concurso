@@ -46,6 +46,7 @@ type RankFila = {
   codigo: string
   nombre_completo: string
   puntaje_final: number
+  promedio_por_criterio?: Record<string, number>
 }
 
 const POLL_MS = 6000
@@ -305,6 +306,16 @@ export function CoordinacionSalaPanel({
     if (!evento || !categoriaSeleccionada) return
     const yaActivo = desempateActivo?.lugar === lugar && desempateActivo.categoriaId === categoriaSeleccionada
     const criterioDesempate = criterios.find((c) => c.es_criterio_desempate)
+    const criterioId = criterioDesempate?.id
+
+    // Obtener puntaje en el criterio de desempate para ambos participantes
+    const puntajeCriterio1 = criterioId && filas[0].promedio_por_criterio
+      ? Number(filas[0].promedio_por_criterio[criterioId])
+      : filas[0].puntaje_final
+    const puntajeCriterio2 = criterioId && filas[1].promedio_por_criterio
+      ? Number(filas[1].promedio_por_criterio[criterioId])
+      : filas[1].puntaje_final
+
     const payload = yaActivo
       ? null
       : {
@@ -313,12 +324,12 @@ export function CoordinacionSalaPanel({
           participante1: {
             nombre: filas[0].nombre_completo,
             puntajeTotal: filas[0].puntaje_final,
-            puntajeCriterio: filas[0].puntaje_final,
+            puntajeCriterio: puntajeCriterio1,
           },
           participante2: {
             nombre: filas[1].nombre_completo,
             puntajeTotal: filas[1].puntaje_final,
-            puntajeCriterio: filas[1].puntaje_final,
+            puntajeCriterio: puntajeCriterio2,
           },
         }
     setDesempateBusy(true)

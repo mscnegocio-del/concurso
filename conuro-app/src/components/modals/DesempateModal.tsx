@@ -85,37 +85,31 @@ export function DesempateModal({
                 backgroundColor: `color-mix(in srgb, var(--desempate-accent, #dc2626) 10%, transparent)`,
               }}
             >
-              <div className="mb-2 flex items-center justify-between">
+              <div className="mb-3 flex items-center justify-between">
                 <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-                  🏆 Ganador del desempate
+                  🏆 Ganador
                 </span>
                 <span
-                  className="rounded-full px-2 py-1 text-xs font-bold text-white"
+                  className="rounded-full px-3 py-1 text-sm font-bold text-white"
                   style={{ backgroundColor: 'var(--desempate-accent, #dc2626)' }}
                 >
                   {winner.puntajeCriterio}
                 </span>
               </div>
-              <p className={cn('font-semibold', textColor)}>{winner.nombre}</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Puntaje total: {winner.puntajeTotal}
-              </p>
+              <p className={cn('font-semibold text-base', textColor)}>{winner.nombre}</p>
             </div>
 
             {/* Loser */}
             <div className="rounded-xl border border-slate-300 p-4 dark:border-slate-600">
-              <div className="mb-2 flex items-center justify-between">
+              <div className="mb-3 flex items-center justify-between">
                 <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">
                   Participante
                 </span>
-                <span className="rounded-full border border-slate-300 px-2 py-1 text-xs font-bold dark:border-slate-600">
+                <span className="rounded-full border border-slate-300 px-3 py-1 text-sm font-bold dark:border-slate-600">
                   {loser.puntajeCriterio}
                 </span>
               </div>
-              <p className={cn('font-semibold', textColor)}>{loser.nombre}</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Puntaje total: {loser.puntajeTotal}
-              </p>
+              <p className={cn('font-semibold text-base', textColor)}>{loser.nombre}</p>
             </div>
           </div>
 
