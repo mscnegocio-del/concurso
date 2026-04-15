@@ -542,7 +542,7 @@ export function PublicoEventoPage() {
                       'rounded-full px-3 py-1 text-[clamp(0.65rem,1.6vmin,0.8rem)] font-semibold uppercase tracking-wider',
                       revelaciónEnProgreso
                         ? 'bg-[color-mix(in_srgb,var(--publico-accent)_20%,transparent)] text-[color-mix(in_srgb,var(--publico-accent)_85%,transparent)]'
-                        : 'bg-[color-mix(in_srgb,#22c55e_20%,transparent)] text-[color-mix(in_srgb,#22c55e_85%,transparent)]',
+                        : 'bg-[color-mix(in_srgb,#a0a0a0_20%,transparent)] text-[color-mix(in_srgb,#a0a0a0_85%,transparent)]',
                     )}
                   >
                     Paso {Math.min(pasoRevelacion, puestosPodio)}/{puestosPodio} — Revelación progresiva
@@ -675,11 +675,11 @@ function PodioSlot({
   const orden = lugar === 1 ? 'order-2' : lugar === 2 ? 'order-1' : 'order-3'
   return (
     <div
-      className={`flex w-[30%] max-w-[min(32vmin,15rem)] flex-col items-center sm:max-w-[min(34vmin,16rem)] ${orden}`}
+      className={`flex w-[30%] max-w-[min(32vmin,15rem)] flex-col items-center transition-all duration-700 sm:max-w-[min(34vmin,16rem)] ${orden}`}
     >
       <div
         className={cn(
-          'flex w-full flex-col items-center justify-end rounded-t-2xl border bg-[var(--publico-podio-card)] px-[clamp(0.5rem,1.8vmin,1rem)] pb-[clamp(1rem,2.5dvh,1.75rem)] pt-[clamp(1.25rem,3dvh,2.25rem)] text-center',
+          'flex w-full flex-col items-center justify-end rounded-t-2xl border bg-[var(--publico-podio-card)] px-[clamp(0.5rem,1.8vmin,1rem)] pb-[clamp(1rem,2.5dvh,1.75rem)] pt-[clamp(1.25rem,3dvh,2.25rem)] text-center transition-all duration-700',
           h,
           lugar === 1 && fila
             ? 'publico-podium-first border-[color:color-mix(in_srgb,var(--publico-accent)_45%,transparent)] ring-2 ring-[color:color-mix(in_srgb,var(--publico-accent)_35%,transparent)]'
@@ -704,7 +704,7 @@ function PodioSlot({
         )}
       </div>
       <div
-        className={`w-full rounded-b-xl bg-[var(--publico-podio-base)] ${
+        className={`w-full rounded-b-xl bg-[var(--publico-podio-base)] transition-all duration-700 ${
           lugar === 1
             ? 'h-[clamp(2.5rem,6dvh,6rem)]'
             : lugar === 2
