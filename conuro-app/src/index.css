@@ -224,13 +224,29 @@
 @keyframes publico-podium-enter {
   from {
     opacity: 0;
-    transform: scale(0.94);
+    transform: scale(0.92) translateY(16px);
   }
 
   to {
     opacity: 1;
-    transform: scale(1);
+    transform: scale(1) translateY(0);
   }
+}
+
+/* Transición suave del podio (entrada y salida) */
+.publico-podium-container {
+  @apply transition-all duration-600 ease-out;
+}
+
+.publico-podium-container.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.publico-podium-container.hidden {
+  opacity: 0;
+  transform: scale(0.92);
+  pointer-events: none;
 }
 
 /* Primer puesto: pulso suave para lectura a distancia */

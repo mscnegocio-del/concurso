@@ -165,6 +165,8 @@ function PublicoEscaladoViewport({
   )
 }
 
+type ConnectionStatus = 'realtime' | 'polling' | 'offline'
+
 export function PublicoEventoPage() {
   const { eventoSlug } = useParams<{ eventoSlug: string }>()
   const codigo = (eventoSlug ?? '').trim()
@@ -173,50 +175,70 @@ export function PublicoEventoPage() {
   const [progreso, setProgreso] = useState<ProgresoFila[]>([])
   const [publicados, setPublicados] = useState<Publicado[]>([])
   const [podio, setPodio] = useState<PodioFila[]>([])
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('offline')
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null)
   const prevPubCount = useRef(0)
+  const lastSyncRef = useRef<Date | null>(null)
+  const realtimeActiveRef = useRef(false)
 
   const cargar = useCallback(async () => {
     if (!codigo) return
-    const { data: h } = await supabase.rpc('publico_evento_por_codigo', { p_codigo: codigo })
-    const row = h?.[0] as EventoHeader | undefined
-    if (!row) {
-      setNotFound(true)
-      setHeader(null)
-      return
-    }
-    setNotFound(false)
-    setHeader(row)
-
-    const { data: p } = await supabase.rpc('publico_progreso_por_codigo', { p_codigo: codigo })
-    setProgreso((p ?? []) as ProgresoFila[])
-
-    const { data: pub } = await supabase.rpc('publico_categorias_publicadas', { p_codigo: codigo })
-    const list = (pub ?? []) as Publicado[]
-    setPublicados(list)
-
-    if (
-      list.length > prevPubCount.current &&
-      prevPubCount.current > 0 &&
-      row.sonido_revelacion_activo !== false
-    ) {
-      playRevealChime()
-    }
-    prevPubCount.current = list.length
-
-    const ultima = list[0]
-    if (ultima) {
-      const { data: pod, error: podErr } = await supabase.rpc('publico_podio_categoria', {
-        p_codigo: codigo,
-        p_categoria_id: ultima.categoria_id,
-      })
-      if (podErr) {
-        console.error('[publico] publico_podio_categoria', podErr)
-        setPodio([])
-      } else {
-        setPodio(normalizarFilasPodio(pod))
+    try {
+      const { data: h } = await supabase.rpc('publico_evento_por_codigo', { p_codigo: codigo })
+      const row = h?.[0] as EventoHeader | undefined
+      if (!row) {
+        setNotFound(true)
+        setHeader(null)
+        return
       }
-    } else {
-      setPodio([])
+      setNotFound(false)
+      setHeader(row)
+
+      const { data: p } = await supabase.rpc('publico_progreso_por_codigo', { p_codigo: codigo })
+      setProgreso((p ?? []) as ProgresoFila[])
+
+      const { data: pub } = await supabase.rpc('publico_categorias_publicadas', { p_codigo: codigo })
+      const list = (pub ?? []) as Publicado[]
+      setPublicados(list)
+
+      if (
+        list.length > prevPubCount.current &&
+        prevPubCount.current > 0 &&
+        row.sonido_revelacion_activo !== false
+      ) {
+        playRevealChime()
+      }
+      prevPubCount.current = list.length
+
+      const ultima = list[0]
+      if (ultima) {
+        const { data: pod, error: podErr } = await supabase.rpc('publico_podio_categoria', {
+          p_codigo: codigo,
+          p_categoria_id: ultima.categoria_id,
+        })
+        if (podErr) {
+          console.error('[publico] publico_podio_categoria', podErr)
+          setPodio([])
+        } else {
+          setPodio(normalizarFilasPodio(pod))
+        }
+      } else {
+        setPodio([])
+      }
+
+      // Actualizar estado de conexión y timestamp
+      lastSyncRef.current = new Date()
+      setLastSyncedAt(new Date())
+      if (!realtimeActiveRef.current) {
+        setConnectionStatus('polling')
+      }
+    } catch (err) {
+      console.error('[publico] error cargando datos', err)
+      // Si pasan >10s sin sincronización, mostrar offline
+      const now = new Date()
+      if (lastSyncRef.current && now.getTime() - lastSyncRef.current.getTime() > 10000) {
+        setConnectionStatus('offline')
+      }
     }
   }, [codigo])
 
@@ -248,11 +270,22 @@ export function PublicoEventoPage() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'resultados_publicados', filter: `evento_id=eq.${eventoId}` },
         () => {
+          realtimeActiveRef.current = true
+          setConnectionStatus('realtime')
           queueMicrotask(() => void cargar())
         },
       )
-      .subscribe()
+      .subscribe((_status, err) => {
+        if (err) {
+          realtimeActiveRef.current = false
+          setConnectionStatus('polling')
+        } else {
+          realtimeActiveRef.current = true
+          setConnectionStatus('realtime')
+        }
+      })
     return () => {
+      realtimeActiveRef.current = false
       void supabase.removeChannel(ch)
     }
   }, [header?.id, codigo, cargar])
@@ -274,6 +307,11 @@ export function PublicoEventoPage() {
   }, [publicados, progreso])
 
   const puestosPodio = useMemo(() => puestosPremiarSeguros(header?.puestos_a_premiar), [header?.puestos_a_premiar])
+
+  // Paso actual de revelación (modo escalonado)
+  const pasoRevelacion = publicados[0]?.paso_revelacion ?? 0
+  const modoEscalonado = header?.modo_revelacion_podio === 'escalonado'
+  const revelaciónEnProgreso = modoEscalonado && pasoRevelacion > 0 && pasoRevelacion < puestosPodio
 
   const pctGlobal = useMemo(() => {
     const reg = progreso.reduce((a, r) => a + Number(r.calificaciones_registradas), 0)
@@ -320,12 +358,37 @@ export function PublicoEventoPage() {
     ? ({ ['--publico-accent-override' as string]: accentOverride } as CSSProperties)
     : undefined
 
+  // Formatear tiempo desde última sincronización
+  const timeAgoStr = lastSyncedAt
+    ? (() => {
+        const diff = Math.floor((Date.now() - lastSyncedAt.getTime()) / 1000)
+        if (diff < 60) return 'hace unos segundos'
+        if (diff < 120) return 'hace 1 minuto'
+        if (diff < 3600) return `hace ${Math.floor(diff / 60)} minutos`
+        return `hace ${Math.floor(diff / 3600)} horas`
+      })()
+    : null
+
+  const connectionLabel = {
+    realtime: '🟢 Conectado',
+    polling: '🟡 Sincronizando',
+    offline: '🔴 Sin conexión',
+  }[connectionStatus]
+
   return (
     <main
       className="publico-root fixed inset-0 z-10 flex h-[100dvh] max-h-[100dvh] w-screen flex-col overflow-hidden overscroll-none"
       data-publico-theme={plantillaTv}
       style={accentStyle}
     >
+      {/* Badge de estado de conexión (esquina superior derecha) */}
+      <div className="fixed top-4 right-4 z-50 text-xs opacity-75 mix-blend-multiply">
+        <div className="rounded bg-white/60 px-2.5 py-1.5 text-[#333] backdrop-blur-sm dark:bg-black/60 dark:text-white">
+          <p className="font-semibold whitespace-nowrap">{connectionLabel}</p>
+          {timeAgoStr && <p className="text-[10px] opacity-70 mt-0.5">{timeAgoStr}</p>}
+        </div>
+      </div>
+
       <PublicoEscaladoViewport layoutRevision={layoutRevision}>
         <div className="publico-display flex min-h-[100dvh] w-full min-w-0 flex-col px-[clamp(1rem,3.5vw,2.75rem)] py-[clamp(0.75rem,2.5dvh,2.25rem)]">
           <header className="flex shrink-0 flex-col items-center gap-[clamp(0.75rem,2.5vmin,1.5rem)] text-center md:flex-row md:items-start md:justify-between md:text-left">
@@ -473,10 +536,19 @@ export function PublicoEventoPage() {
                   Categoría: {nombreUltimaCategoria}
                 </p>
               )}
-              {modoRevelacion === 'escalonado' && (
-                <p className="mt-1 text-[clamp(0.7rem,1.8vmin,0.85rem)] text-[var(--publico-text-muted)]">
-                  Revelación escalonada en curso
-                </p>
+              {modoEscalonado && publicados.length > 0 && (
+                <div className="mt-2 inline-block">
+                  <div
+                    className={cn(
+                      'rounded-full px-3 py-1 text-[clamp(0.65rem,1.6vmin,0.8rem)] font-semibold uppercase tracking-wider',
+                      revelaciónEnProgreso
+                        ? 'bg-[color-mix(in_srgb,var(--publico-accent)_20%,transparent)] text-[color-mix(in_srgb,var(--publico-accent)_85%,transparent)]'
+                        : 'bg-[color-mix(in_srgb,#22c55e_20%,transparent)] text-[color-mix(in_srgb,#22c55e_85%,transparent)]',
+                    )}
+                  >
+                    Paso {Math.min(pasoRevelacion, puestosPodio)}/{puestosPodio} — Revelación progresiva
+                  </div>
+                </div>
               )}
               {(hayPodioPublicado || publicadoSinPodio) && (
                 <p className="mt-1 text-[clamp(0.75rem,2vmin,0.95rem)] text-[var(--publico-text-muted)]">
@@ -497,7 +569,12 @@ export function PublicoEventoPage() {
                 </p>
               ) : (
                 <div className="mt-6 flex min-h-0 flex-1 flex-col justify-center">
-                  <div className="publico-podium-reveal flex items-end justify-center gap-[clamp(0.5rem,2vmin,1.5rem)]">
+                  <div
+                    className={cn(
+                      'publico-podium-container publico-podium-reveal flex items-end justify-center gap-[clamp(0.5rem,2vmin,1.5rem)]',
+                      podio.length > 0 ? 'visible' : 'hidden',
+                    )}
+                  >
                     <PodioSlot lugar={2} fila={filaPodio(podio, 2)} puestos={puestosPodio} />
                     <PodioSlot lugar={1} fila={filaPodio(podio, 1)} puestos={puestosPodio} alto />
                     <PodioSlot lugar={3} fila={filaPodio(podio, 3)} puestos={puestosPodio} />
