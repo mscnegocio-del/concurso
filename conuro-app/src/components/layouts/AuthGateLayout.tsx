@@ -2,6 +2,8 @@ import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
 type Props = {
+  /** Ícono o marca visual sobre el eyebrow (opcional). */
+  logo?: ReactNode
   /** Marca pequeña sobre el título (p. ej. Conuro). */
   eyebrow?: string
   title: string
@@ -16,6 +18,7 @@ type Props = {
  * Fondo y contenedor para login admin (OTP) y login jurado: gradiente suave, tarjeta con vidrio ligero.
  */
 export function AuthGateLayout({
+  logo,
   eyebrow = 'Conuro',
   title,
   description,
@@ -50,6 +53,7 @@ export function AuthGateLayout({
       <div className="relative z-10 w-full max-w-md">
         <div className="rounded-2xl border border-border/70 bg-card/90 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.18)] ring-1 ring-black/5 backdrop-blur-md dark:bg-card/75 dark:ring-white/10 dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.45)]">
           <div className="border-b border-border/60 px-6 pt-7 pb-5 sm:px-8 sm:pt-8">
+            {logo ? <div className="mb-3">{logo}</div> : null}
             <p className="text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
               {eyebrow}
             </p>
@@ -60,7 +64,7 @@ export function AuthGateLayout({
               <div className="mt-2 text-sm leading-relaxed text-muted-foreground">{description}</div>
             ) : null}
           </div>
-          <div className="px-6 py-6 sm:px-8 sm:py-7">{children}</div>
+          <div className="overflow-hidden px-6 py-6 sm:px-8 sm:py-7">{children}</div>
           {footer ? (
             <div className="border-t border-border/60 px-6 py-4 sm:px-8">{footer}</div>
           ) : null}
