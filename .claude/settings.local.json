@@ -3,5 +3,9 @@
     "allow": [
       "Bash(npm run:*)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "supabase"
+  ],
+  "enableAllProjectMcpServers": true
 }

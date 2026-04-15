@@ -136,7 +136,8 @@ grant execute on function public.publico_progreso_por_codigo(text) to anon, auth
 create or replace function public.publico_categorias_publicadas(p_codigo text)
 returns table (
   categoria_id uuid,
-  publicado_at timestamptz
+  publicado_at timestamptz,
+  paso_revelacion int
 )
 language plpgsql
 stable
@@ -157,7 +158,7 @@ begin
   end if;
 
   return query
-  select rp.categoria_id, rp.publicado_at
+  select rp.categoria_id, rp.publicado_at, rp.paso_revelacion
   from public.resultados_publicados rp
   where rp.evento_id = v_evento_id
   order by rp.publicado_at desc;

@@ -80,6 +80,12 @@ function filaPodio(filas: PodioFila[], lugar: number): PodioFila | undefined {
   return filas.find((x) => Number(x.puesto) === lugar)
 }
 
+function hayEmpateEnLugar(filas: PodioFila[], lugar: number): boolean {
+  const fila = filaPodio(filas, lugar)
+  if (!fila) return false
+  return filas.filter((x) => Number(x.puntaje_final) === Number(fila.puntaje_final)).length > 1
+}
+
 const POLL_MS = 5000
 
 /** Piso más alto que 0.22 para legibilidad en TVs pequeñas; el contenido compacto con podio ayuda a no llegar al piso. */
@@ -574,9 +580,9 @@ export function PublicoEventoPage() {
                       podio.length > 0 ? 'visible' : 'hidden',
                     )}
                   >
-                    <PodioSlot lugar={2} fila={filaPodio(podio, 2)} puestos={puestosPodio} />
-                    <PodioSlot lugar={1} fila={filaPodio(podio, 1)} puestos={puestosPodio} alto />
-                    <PodioSlot lugar={3} fila={filaPodio(podio, 3)} puestos={puestosPodio} />
+                    <PodioSlot lugar={2} fila={filaPodio(podio, 2)} puestos={puestosPodio} hayEmpate={hayEmpateEnLugar(podio, 2)} />
+                    <PodioSlot lugar={1} fila={filaPodio(podio, 1)} puestos={puestosPodio} alto hayEmpate={hayEmpateEnLugar(podio, 1)} />
+                    <PodioSlot lugar={3} fila={filaPodio(podio, 3)} puestos={puestosPodio} hayEmpate={hayEmpateEnLugar(podio, 3)} />
                   </div>
                 </div>
               )}
@@ -660,11 +666,13 @@ function PodioSlot({
   fila,
   puestos,
   alto,
+  hayEmpate,
 }: {
   lugar: 1 | 2 | 3
   fila: PodioFila | undefined
   puestos: 2 | 3
   alto?: boolean
+  hayEmpate?: boolean
 }) {
   if (puestos < lugar) {
     return <div className="w-[28%] max-w-[min(30vmin,15rem)]" aria-hidden />
@@ -698,6 +706,11 @@ function PodioSlot({
             <p className="text-[clamp(0.6rem,1.5vmin,0.75rem)] uppercase tracking-wider text-[var(--publico-text-muted)]">
               puntos
             </p>
+            {hayEmpate && (
+              <p className="mt-[clamp(0.4rem,1.2dvh,0.6rem)] inline-block rounded-full bg-[color-mix(in_srgb,var(--publico-accent)_15%,transparent)] px-[clamp(0.5rem,1.5vmin,0.75rem)] py-[clamp(0.2rem,0.6dvh,0.3rem)] text-[clamp(0.5rem,1.2vmin,0.65rem)] font-medium text-[color-mix(in_srgb,var(--publico-accent)_75%,transparent)]">
+                ⚔️ Desempate
+              </p>
+            )}
           </>
         ) : (
           <p className="mt-6 text-[var(--publico-placeholder-text)]">—</p>
