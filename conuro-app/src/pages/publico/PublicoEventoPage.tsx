@@ -352,7 +352,6 @@ export function PublicoEventoPage() {
   const panelRevelacionPrioritario = hayPodioPublicado || publicadoSinPodio
 
   const plantillaTv = normalizePlantillaPublica(header.plantilla_publica)
-  const modoRevelacion = header.modo_revelacion_podio === 'escalonado' ? 'escalonado' : 'simultaneo'
   const accentOverride = normalizeAccentHex(header.color_accento_hex)
   const accentStyle = accentOverride
     ? ({ ['--publico-accent-override' as string]: accentOverride } as CSSProperties)
