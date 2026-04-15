@@ -1,4 +1,4 @@
-import { Loader2 } from 'lucide-react'
+import { Check, Loader2, Shield } from 'lucide-react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { ClipboardEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
@@ -39,8 +39,10 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [verifying, setVerifying] = useState(false)
+  const [otpComplete, setOtpComplete] = useState(false)
   const [otpSecondsLeft, setOtpSecondsLeft] = useState(600)
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
+  const hasAutoSubmitted = useRef(false)
 
   const emailForm = useForm<EmailForm>({
     resolver: zodResolver(emailSchema),
@@ -70,6 +72,23 @@ export function LoginPage() {
     }
   }, [loading, user, perfil, navigate])
 
+  // Auto-submit cuando los 8 dígitos están completos
+  useEffect(() => {
+    if (step !== 'otp') return
+    const full = otp.every((d) => d !== '')
+    if (full && !verifying && !hasAutoSubmitted.current) {
+      hasAutoSubmitted.current = true
+      setOtpComplete(true)
+      const t = window.setTimeout(() => void onVerifyOtp(), 350)
+      return () => window.clearTimeout(t)
+    }
+    if (!full) {
+      hasAutoSubmitted.current = false
+      setOtpComplete(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [otp, step, verifying])
+
   if (!loading && user && perfil) {
     return <Navigate to={getRoleHome(perfil.rol)} replace />
   }
@@ -98,6 +117,8 @@ export function LoginPage() {
       sessionStorage.setItem(LOGIN_EMAIL_KEY, data.email.trim().toLowerCase())
       setStep('otp')
       setOtp(Array(8).fill(''))
+      hasAutoSubmitted.current = false
+      setOtpComplete(false)
       requestAnimationFrame(() => inputRefs.current[0]?.focus())
     } finally {
       setSending(false)
@@ -124,6 +145,8 @@ export function LoginPage() {
         } else {
           setError(e.message)
         }
+        hasAutoSubmitted.current = false
+        setOtpComplete(false)
         return
       }
       sessionStorage.removeItem(LOGIN_EMAIL_KEY)
@@ -142,7 +165,12 @@ export function LoginPage() {
         options: { shouldCreateUser: false },
       })
       if (e) setError(e.message)
-      else setOtpSecondsLeft(600)
+      else {
+        setOtpSecondsLeft(600)
+        setOtp(Array(8).fill(''))
+        hasAutoSubmitted.current = false
+        setOtpComplete(false)
+      }
     } finally {
       setSending(false)
     }
@@ -180,6 +208,11 @@ export function LoginPage() {
 
   return (
     <AuthGateLayout
+      logo={
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20 dark:bg-primary/15 dark:ring-primary/30">
+          <Shield className="size-5 text-primary" aria-hidden />
+        </span>
+      }
       title="Acceso administración"
       description={
         step === 'email'
@@ -194,6 +227,42 @@ export function LoginPage() {
         </p>
       }
     >
+      {/* Indicador de paso */}
+      <div
+        className="mb-5 flex items-center gap-2 text-xs font-medium"
+        aria-label="Progreso del inicio de sesión"
+      >
+        <span
+          className={cn(
+            'flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ring-1',
+            step === 'email'
+              ? 'bg-primary text-primary-foreground ring-primary'
+              : 'bg-primary/15 text-primary ring-primary/30 dark:bg-primary/20',
+          )}
+          aria-current={step === 'email' ? 'step' : undefined}
+        >
+          {step === 'otp' ? <Check className="size-3" aria-hidden /> : '1'}
+        </span>
+        <span className={step === 'email' ? 'text-foreground' : 'text-muted-foreground'}>
+          Correo
+        </span>
+        <div className="mx-1 h-px flex-1 bg-border" aria-hidden />
+        <span
+          className={cn(
+            'flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ring-1',
+            step === 'otp'
+              ? 'bg-primary text-primary-foreground ring-primary'
+              : 'bg-muted text-muted-foreground ring-border',
+          )}
+          aria-current={step === 'otp' ? 'step' : undefined}
+        >
+          2
+        </span>
+        <span className={step === 'otp' ? 'text-foreground' : 'text-muted-foreground'}>
+          Código
+        </span>
+      </div>
+
       {user && perfilError && (
         <Alert className="mb-4 border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
           <AlertTitle>Perfil no disponible</AlertTitle>
@@ -219,100 +288,158 @@ export function LoginPage() {
       )}
 
       {step === 'email' ? (
-        <Form {...emailForm}>
-          <form
-            className="space-y-5"
-            onSubmit={emailForm.handleSubmit(onSendEmail)}
-            noValidate
-          >
-            <FormField
-              control={emailForm.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Correo electrónico</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="email"
-                      autoComplete="email"
-                      className="h-11 rounded-lg text-base shadow-sm"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <Button type="submit" className="h-11 w-full rounded-lg text-base font-medium" disabled={sending}>
-              {sending ? (
-                <>
-                  <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
-                  Enviando…
-                </>
-              ) : (
-                'Enviar código OTP'
-              )}
-            </Button>
-          </form>
-        </Form>
+        <div key="email-step" className="animate-in fade-in-0 slide-in-from-right-4 duration-300">
+          <Form {...emailForm}>
+            <form
+              className="space-y-5"
+              onSubmit={emailForm.handleSubmit(onSendEmail)}
+              noValidate
+            >
+              <FormField
+                control={emailForm.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Correo electrónico</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="email"
+                        autoComplete="email"
+                        className="h-11 rounded-lg text-base shadow-sm"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button
+                type="submit"
+                className="h-11 w-full rounded-lg text-base font-medium"
+                disabled={sending}
+              >
+                {sending ? (
+                  <>
+                    <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                    Enviando…
+                  </>
+                ) : (
+                  'Enviar código OTP'
+                )}
+              </Button>
+            </form>
+          </Form>
+        </div>
       ) : (
-        <div className="space-y-5">
+        <div
+          key="otp-step"
+          className="animate-in fade-in-0 slide-in-from-right-4 duration-300 space-y-5"
+        >
           <p className="text-sm leading-relaxed text-muted-foreground">
             Enviado a{' '}
             <span className="font-medium break-all text-foreground">{pendingEmail}</span>
           </p>
+
+          {/* Timer */}
           <div className="flex items-center justify-center gap-2">
             <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Tiempo restante
             </span>
             <span
-              className="rounded-md bg-muted/80 px-2.5 py-1 font-mono text-sm font-semibold tabular-nums text-foreground ring-1 ring-border/60"
+              className={cn(
+                'rounded-md px-2.5 py-1 font-mono text-sm font-semibold tabular-nums ring-1 transition-colors',
+                otpSecondsLeft > 60
+                  ? 'bg-muted/80 text-foreground ring-border/60'
+                  : 'bg-amber-50 text-amber-700 ring-amber-200/80 dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-700/50',
+              )}
               aria-live="polite"
             >
               {String(Math.floor(otpSecondsLeft / 60)).padStart(2, '0')}:
               {String(otpSecondsLeft % 60).padStart(2, '0')}
             </span>
           </div>
+
+          {/* Inputs OTP agrupados 4+4 */}
           <div
-            className="flex flex-wrap justify-center gap-2 sm:gap-2.5"
+            className="flex items-center justify-center gap-3"
             onPaste={onOtpPaste}
           >
-            {otp.map((d, i) => (
-              <Input
-                key={i}
-                ref={(el) => {
-                  inputRefs.current[i] = el
-                }}
-                type="text"
-                inputMode="numeric"
-                maxLength={1}
-                value={d}
-                aria-label={`Dígito ${i + 1} del código`}
-                aria-invalid={!!error && otp.join('').length < 8}
-                className={cn(
-                  'h-12 w-10 rounded-lg border-2 border-input bg-background text-center font-mono text-xl tabular-nums shadow-sm transition-colors',
-                  'focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-primary/20',
-                )}
-                onChange={(e) => onOtpChange(i, e.target.value)}
-                onKeyDown={(e) => onOtpKeyDown(i, e.key)}
-              />
-            ))}
+            <div className="flex gap-1.5 sm:gap-2">
+              {otp.slice(0, 4).map((d, i) => (
+                <Input
+                  key={i}
+                  ref={(el) => { inputRefs.current[i] = el }}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={1}
+                  value={d}
+                  aria-label={`Dígito ${i + 1} del código`}
+                  aria-invalid={!!error && otp.join('').length < 8}
+                  className={cn(
+                    'h-12 w-10 rounded-lg border-2 bg-background text-center font-mono text-xl tabular-nums shadow-sm transition-all',
+                    'focus-visible:ring-[3px] focus-visible:ring-primary/20',
+                    d
+                      ? 'border-primary bg-primary/5 text-primary focus-visible:border-primary dark:bg-primary/10'
+                      : 'border-input text-foreground focus-visible:border-primary',
+                    error && otp.join('').length < 8 && 'border-destructive/70',
+                  )}
+                  onChange={(e) => onOtpChange(i, e.target.value)}
+                  onKeyDown={(e) => onOtpKeyDown(i, e.key)}
+                />
+              ))}
+            </div>
+            <span
+              className="select-none font-mono text-xl font-light text-muted-foreground/60"
+              aria-hidden
+            >
+              —
+            </span>
+            <div className="flex gap-1.5 sm:gap-2">
+              {otp.slice(4, 8).map((d, i) => (
+                <Input
+                  key={i + 4}
+                  ref={(el) => { inputRefs.current[i + 4] = el }}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={1}
+                  value={d}
+                  aria-label={`Dígito ${i + 5} del código`}
+                  aria-invalid={!!error && otp.join('').length < 8}
+                  className={cn(
+                    'h-12 w-10 rounded-lg border-2 bg-background text-center font-mono text-xl tabular-nums shadow-sm transition-all',
+                    'focus-visible:ring-[3px] focus-visible:ring-primary/20',
+                    d
+                      ? 'border-primary bg-primary/5 text-primary focus-visible:border-primary dark:bg-primary/10'
+                      : 'border-input text-foreground focus-visible:border-primary',
+                    error && otp.join('').length < 8 && 'border-destructive/70',
+                  )}
+                  onChange={(e) => onOtpChange(i + 4, e.target.value)}
+                  onKeyDown={(e) => onOtpKeyDown(i + 4, e.key)}
+                />
+              ))}
+            </div>
           </div>
+
           <Button
             type="button"
             className="h-11 w-full rounded-lg text-base font-medium"
-            disabled={verifying}
+            disabled={verifying || otpComplete}
             onClick={() => void onVerifyOtp()}
           >
-            {verifying ? (
+            {verifying || otpComplete ? (
               <>
-                <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                {verifying ? (
+                  <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                ) : (
+                  <Check className="size-4 shrink-0" aria-hidden />
+                )}
                 Verificando…
               </>
             ) : (
               'Verificar e ingresar'
             )}
           </Button>
+
           <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-sm">
             <Button
               type="button"
@@ -333,6 +460,8 @@ export function LoginPage() {
                 setStep('email')
                 setOtp(Array(8).fill(''))
                 setError(null)
+                hasAutoSubmitted.current = false
+                setOtpComplete(false)
               }}
             >
               Cambiar correo
