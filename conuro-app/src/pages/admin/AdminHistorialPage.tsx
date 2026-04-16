@@ -1,4 +1,4 @@
-import { Copy, Loader2 } from 'lucide-react'
+import { Copy, Loader2, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -44,6 +44,8 @@ export function AdminHistorialPage() {
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [cloneId, setCloneId] = useState<string | null>(null)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [deleteBusy, setDeleteBusy] = useState(false)
   const [createBusy, setCreateBusy] = useState(false)
   const [plantillasCriterios, setPlantillasCriterios] = useState<{ id: string; nombre_plantilla: string }[]>([])
 
@@ -101,6 +103,52 @@ export function AdminHistorialPage() {
   function irAGestionar(id: string) {
     if (orgId) setStoredEventoFoco(orgId, id)
     navigate(`/admin/evento/${id}`)
+  }
+
+  async function handleEliminar(id: string) {
+    if (!orgId || !perfil) return
+    setDeleteBusy(true)
+    setError(null)
+    try {
+      const evento = rows.find((r) => r.id === id)
+      if (!evento) {
+        setError('Evento no encontrado')
+        return
+      }
+
+      // Solo permitir eliminar eventos en estado borrador
+      if (evento.estado !== 'borrador') {
+        setError('Solo se pueden eliminar eventos en estado Borrador')
+        return
+      }
+
+      // Eliminar evento
+      const { error: err } = await supabase.from('eventos').delete().eq('id', id)
+      if (err) {
+        setError(err.message)
+        return
+      }
+
+      // Registrar en auditoría
+      await registrarAuditoria({
+        organizacionId: orgId,
+        eventoId: id,
+        usuarioId: perfil.id,
+        accion: 'evento_eliminado',
+        detalle: { nombre: evento.nombre, estado: evento.estado },
+      })
+
+      toast.success(`Evento "${evento.nombre}" eliminado`)
+      if (focoId === id) {
+        localStorage.removeItem(`admin_evento_foco_${orgId}`)
+      }
+      await load()
+    } catch (e) {
+      setError(String(e))
+    } finally {
+      setDeleteBusy(false)
+      setDeleteId(null)
+    }
   }
 
   async function copiarCodigoAcceso(codigo: string) {
@@ -354,6 +402,17 @@ export function AdminHistorialPage() {
                           'Clonar'
                         )}
                       </Button>
+                      <Button
+                        type="button"
+                        variant="link"
+                        className="h-auto gap-2 p-0 text-destructive hover:text-destructive/80"
+                        disabled={deleteBusy || r.estado !== 'borrador'}
+                        onClick={() => setDeleteId(r.id)}
+                        title={r.estado !== 'borrador' ? 'Solo se pueden eliminar eventos en borrador' : ''}
+                      >
+                        <Trash2 className="size-4" aria-hidden />
+                        Eliminar
+                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -421,6 +480,25 @@ export function AdminHistorialPage() {
                     'Clonar'
                   )}
                 </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  disabled={deleteBusy || r.estado !== 'borrador'}
+                  onClick={() => setDeleteId(r.id)}
+                >
+                  {deleteBusy ? (
+                    <>
+                      <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                      Eliminando…
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="size-4" aria-hidden />
+                      Eliminar
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
           ))}
@@ -455,6 +533,37 @@ export function AdminHistorialPage() {
                 </>
               ) : (
                 'Clonar'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={deleteId !== null} onOpenChange={(o) => !o && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar evento</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Estás seguro? Esta acción no se puede deshacer. El evento y todos sus datos (categorías, criterios, participantes, etc.) serán eliminados permanentemente. Se registrará un registro de auditoría.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteBusy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleteBusy}
+              onClick={(e) => {
+                e.preventDefault()
+                if (deleteId) void handleEliminar(deleteId)
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteBusy ? (
+                <>
+                  <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                  Eliminando…
+                </>
+              ) : (
+                'Eliminar evento'
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
