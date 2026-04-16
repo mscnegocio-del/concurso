@@ -2,7 +2,14 @@
   "permissions": {
     "allow": [
       "Bash(npm run:*)",
-      "mcp__supabase__apply_migration"
+      "mcp__supabase__apply_migration",
+      "mcp__supabase__execute_sql",
+      "Bash(grep -r \"create_user\\\\|crear_usuario\\\\|sign_up\\\\|create_auth_user\" /f/Programas/concurso/conuro-app/supabase/migrations/*.sql)",
+      "Bash(grep -l \"rpc\\\\|function\\\\|create\" /f/Programas/concurso/conuro-app/supabase/migrations/*.sql)",
+      "Bash(xargs grep *)",
+      "Bash(grep -n \"create or replace function\" /f/Programas/concurso/conuro-app/supabase/migrations/*.sql)",
+      "Bash(grep -n \"create policy\\\\|ALTER TABLE.*ENABLE RLS\" /f/Programas/concurso/conuro-app/supabase/migrations/*.sql)",
+      "Bash(grep -A10 \"create table.*usuarios\" /f/Programas/concurso/conuro-app/supabase/migrations/*.sql)"
     ]
   },
   "enableAllProjectMcpServers": true,

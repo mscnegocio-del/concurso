@@ -126,10 +126,10 @@ Migraciones versionadas en `conuro-app/supabase/migrations/` (incl. `20260410_00
 
 ## Pantallas implementadas (resumen)
 
-1. **Admin:** cabecera evento, categorías, criterios, participantes, jurados, transición de estados, exportación Excel/PDF, historial y clonado.
-2. **Administrador:** progreso, ranking previo, publicar categoría, historial de publicaciones, Realtime + polling.
+1. **Admin:** cabecera evento, categorías, criterios, participantes, jurados, transición de estados, exportación Excel/PDF, historial y clonado, **toggle TV pública**, **upload flyer**.
+2. **Administrador:** progreso, ranking previo, publicar categoría, historial de publicaciones, Realtime + polling, **desempate inline (sin TV)**.
 3. **Jurado:** dashboard por categoría, lista secuencial, formulario por criterios.
-4. **Público:** progreso global y por categoría; última categoría publicada con podio; sonido al nueva publicación; tema claro/oscuro + acento; modo de podio simultáneo o escalonado.
+4. **Público:** progreso global y por categoría; última categoría publicada con podio; sonido al nueva publicación; tema claro/oscuro + acento; modo de podio simultáneo o escalonado; **flyer a pantalla completa en estado abierto**.
 5. **Super:** listado y alta de organizaciones; plan y activo.
 
 Pendientes de producto / refinamiento: reabrir notas solo vía Edge Function (recomendación de arquitectura), confirmación explícita “¿Seguro?” antes de guardar notas del jurado (mejora UX), completar robustez productiva del webhook de Lemon (firma + plan).
@@ -273,6 +273,43 @@ Configuración ya hecha en Supabase / Auth (ejemplo):
   - Color ámbar si `revelaciónEnProgreso` (paso < puestos_a_premiar)
   - Color verde si completada (paso == puestos_a_premiar)
   - Solo aparece en modo escalonado cuando hay categorías publicadas
+
+### Configuración Flexible — Flyer, TV Pública y Desempate (15/04/2026)
+
+#### 1. **Flyer / Imagen del evento**
+- **Nueva columna:** `flyer_url text nullable` en tabla `eventos`
+- **Storage:** Bucket `eventos-flyers` con políticas RLS (`admin`, `super_admin` solo de su org)
+- **Admin:** Sección nueva en `AdminEventoPage.tsx` para subir (JPEG/PNG/WebP, máx 2 MB), ver miniatura y quitar
+- **Pantalla pública:** Muestra flyer a pantalla completa **solo cuando estado = `abierto`** (sala de espera visual)
+  - Estados `calificando`, `cerrado`, `publicado` muestran layout tradicional de progreso + podio
+- **Archivo:** `src/pages/publico/PublicoEventoPage.tsx` renderiza flyer condicional
+
+#### 2. **Toggle "¿Tiene pantalla pública?"**
+- **Nueva columna:** `tiene_tv_publica boolean NOT NULL default true` en tabla `eventos`
+- **Creación:** Formulario en `AdminHistorialPage.tsx` pregunta "Sí (con TV)" / "No (sin TV)" — default: Sí
+- **Admin:** Nueva sección `SeccionToggleTV` permite activar/desactivar desde admin sin F5
+  - Si desactivada, oculta `SeccionPantallaPublica` (modos, plantilla, color)
+- **Administrador:** 
+  - Si `tiene_tv_publica = false`: panel Sala oculta URL/Código TV, muestra aviso descriptivo
+  - Tabs "Publicar" e "Historial" **se mantienen visibles** (publicar = registrar resultados sin importar TV)
+  - Botón "Publicar" cambia label a "Registrar resultados de categoría"
+- **Pantalla pública:** `/publico/:codigo` **sigue funcionando** aunque `tiene_tv_publica = false` (la columna es solo para control admin)
+- **Archivos:** `AdminHistorialPage.tsx`, `AdminEventoPage.tsx`, `AdministradorEventoPage.tsx`, `CoordinacionSalaPanel.tsx`
+
+#### 3. **Desempate visible sin TV**
+- **Nuevo componente:** `DesempateInlinePanel.tsx` (inline, sin overlay, expandible por lugar)
+- **Cuando `tiene_tv_publica = false` y hay empates:**
+  - Panel inline en sección "Publicar" con datos: criterio de desempate, puntaje por criterio, ganador
+  - Muestra quién gana en el criterio de desempate (mayor puntaje = ganador)
+  - Si no hay criterio de desempate: muestra aviso de "resolución manual"
+- **Cuando `tiene_tv_publica = true`:** mantiene botones "Mostrar/Ocultar en TV" originales sin cambios
+- **Datos:** Reutiliza `empatesDetectados` y `criterios` ya calculados en `CoordinacionSalaPanel`
+- **Archivo:** `src/components/coordinacion/DesempateInlinePanel.tsx`
+
+#### Migración SQL
+- **Archivo:** `supabase/migrations/20260415_004_flyer_y_tv_publica.sql`
+- Columnas, bucket, políticas RLS y RPC `publico_evento_por_codigo` actualizada
+- **Retrocompatibilidad:** `default true` y `default null` garantizan eventos existentes no afectados
 
 ---
 

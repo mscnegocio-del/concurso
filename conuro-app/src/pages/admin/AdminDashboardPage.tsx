@@ -137,7 +137,7 @@ export function AdminDashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold tracking-tight text-foreground">Inicio</h2>
+        <h2 className="text-2xl font-semibold tracking-tight text-foreground">Panel de control</h2>
         <p className="mt-1 text-muted-foreground">
           Organización: <span className="font-medium text-foreground">{orgNombre || '—'}</span>
         </p>
@@ -185,7 +185,7 @@ export function AdminDashboardPage() {
                   <Link to={`/admin/evento/${enFoco.id}`}>Abrir gestión</Link>
                 </Button>
                 <Button variant="outline" asChild>
-                  <Link to="/admin/coordinacion">Coordinación de sala</Link>
+                  <Link to="/admin/coordinacion">Panel en vivo</Link>
                 </Button>
               </div>
             </div>

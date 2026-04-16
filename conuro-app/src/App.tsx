@@ -15,6 +15,7 @@ import { AdminEventoPage } from '@/pages/admin/AdminEventoPage'
 import { AdminOrganizacionPage } from '@/pages/admin/AdminOrganizacionPage'
 import { AdminPlantillasCriteriosPage } from '@/pages/admin/AdminPlantillasCriteriosPage'
 import { AdminShell } from '@/pages/admin/AdminShell'
+import { AdminUsuariosPage } from '@/pages/admin/AdminUsuariosPage'
 import { AdministradorEventoPage } from '@/pages/administrador/AdministradorEventoPage'
 import { AdministradorHistorialPage } from '@/pages/administrador/AdministradorHistorialPage'
 import { AdministradorInicioPage } from '@/pages/administrador/AdministradorInicioPage'
@@ -28,6 +29,7 @@ import { JuradoShell } from '@/pages/jurado/JuradoShell'
 import { LoginPage } from '@/pages/LoginPage'
 import { PublicoEventoPage } from '@/pages/publico/PublicoEventoPage'
 import { SuperOrganizacionesPage } from '@/pages/super/SuperOrganizacionesPage'
+import { SuperUsuariosPage } from '@/pages/super/SuperUsuariosPage'
 import { SuperShell } from '@/pages/super/SuperShell'
 
 export default function App() {
@@ -72,6 +74,7 @@ export default function App() {
               <Route path="evento" element={<AdminEventoEntryPage />} />
               <Route path="evento/:eventoId" element={<AdminEventoPage />} />
               <Route path="historial" element={<AdminHistorialPage />} />
+              <Route path="usuarios" element={<AdminUsuariosPage />} />
               <Route path="plantillas-criterios" element={<AdminPlantillasCriteriosPage />} />
               <Route path="coordinacion" element={<AdminCoordinacionPage />} />
               <Route path="organizacion" element={<AdminOrganizacionPage />} />
@@ -103,6 +106,7 @@ export default function App() {
               }
             >
               <Route index element={<SuperOrganizacionesPage />} />
+              <Route path="usuarios" element={<SuperUsuariosPage />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />
