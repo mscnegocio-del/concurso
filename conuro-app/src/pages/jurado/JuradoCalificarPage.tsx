@@ -218,6 +218,7 @@ export function JuradoCalificarPage() {
   const pNombre = parts.find((p) => p.id === participanteId)?.nombre_completo ?? ''
 
   return (
+    <>
     <Card>
       <CardHeader>
         <Button variant="link" className="h-auto w-fit p-0" asChild>
@@ -430,5 +431,6 @@ export function JuradoCalificarPage() {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+    </>
   )
 }
