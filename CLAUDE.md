@@ -311,6 +311,85 @@ Configuración ya hecha en Supabase / Auth (ejemplo):
 - Columnas, bucket, políticas RLS y RPC `publico_evento_por_codigo` actualizada
 - **Retrocompatibilidad:** `default true` y `default null` garantizan eventos existentes no afectados
 
+### UI/UX — Reorganización de Sidebars y Gestión de Usuarios (15/04/2026)
+
+#### Sidebar Admin (`AdminShell.tsx`)
+- **Nuevo estructura (6 ítems con iconos lucide-react):**
+  1. **Inicio** (LayoutDashboard) → `/admin` — Panel de control con estadísticas
+  2. **Historial** (CalendarClock) → `/admin/historial` — Central de eventos CRUD
+  3. **Usuarios** (Users) → `/admin/usuarios` — Crear/gestionar coordinadores ✨ NUEVO
+  4. **Plantillas de criterios** (FileText) → `/admin/plantillas-criterios`
+  5. **Organización** (Building2) → `/admin/organizacion`
+  6. **Panel en vivo** (MonitorPlay) → `/admin/coordinacion` — Renombrado de "Coordinación de sala"
+- ✅ Eliminado "Gestión del evento" del sidebar (acceso via Historial → Gestionar)
+- ✅ Fix: Eliminado duplicado "Inicio" en dashboard (cambiado a "Panel de control")
+- ✅ Iconos mejoran la jerarquía visual y distinción entre secciones
+
+#### Sidebar Administrador / Coordinador (`AdministradorShell.tsx`)
+- **Nueva estructura (2 ítems con iconos):**
+  1. **Inicio** (LayoutDashboard) → `/administrador`
+  2. **Historial** (CalendarClock) → `/administrador/historial`
+- ✅ Agregados iconos lucide-react
+
+#### Sidebar Super Admin (`SuperShell.tsx`)
+- **Nueva estructura (2 ítems con iconos):**
+  1. **Organizaciones** (Building2) → `/super`
+  2. **Usuarios** (Users) → `/super/usuarios` — Gestión multi-org ✨ NUEVO
+- ✅ Agregados iconos lucide-react
+
+#### Gestión de Usuarios — Admin (`AdminUsuariosPage.tsx`) ✨ NUEVO
+- **Ruta:** `/admin/usuarios`
+- **Funcionalidades:**
+  - 📧 **Invitar coordinador:** Email + nombre completo → invitación por email (Supabase Auth)
+  - 📋 **Listar usuarios:** Tabla con email, nombre, rol, estado de confirmación
+  - 🔄 **Realtime:** Suscripción a cambios en `usuarios` tabla por org (actualización automática)
+  - 🗑️ **Eliminar usuario:** Protección contra auto-eliminación; requiere confirmación
+  - 🏷️ **Badges de estado:** "Confirmado" (verde) / "Pendiente" (ámbar) según `email_confirmed_at`
+
+#### Gestión de Usuarios — Super Admin (`SuperUsuariosPage.tsx`) ✨ NUEVO
+- **Ruta:** `/super/usuarios`
+- **Funcionalidades:**
+  - 🏢 **Selector de organización:** Dropdown de orgs activas (multiselección para super_admin)
+  - 📧 **Invitar usuario:** Email + nombre + rol (`admin` o `administrador`) para cualquier org
+  - 📋 **Listar usuarios:** Tabla con email, nombre, rol, estado de confirmación
+  - 🔄 **Realtime:** Actualización automática según org seleccionada
+  - 🗑️ **Eliminar usuario:** Solo super_admin y admin de misma org
+  - 🎯 **Control de permisos:** Super_admin puede crear admin; admin solo puede crear coordinador en su org
+
+#### Edge Function: `invite-user` ✨ NUEVO
+- **Archivo:** `supabase/functions/invite-user/index.ts`
+- **Autenticación:** JWT token del caller validado
+- **Lógica:**
+  1. Verifica permisos (admin vs super_admin)
+  2. Valida que no exista usuario con ese email
+  3. Llama `supabaseAdmin.auth.admin.inviteUserByEmail()` con datos personalizados
+  4. Inserta registro en `public.usuarios` con email_confirmed_at NULL (estado pendiente)
+  5. Manejo de errores y rollback automático si insert falla
+- **Respuesta:** Usuario creado con ID o error descriptivo
+
+#### RPCs nuevas para Usuarios (`20260415_005_admin_usuarios_rpcs.sql`) ✨ NUEVO
+- **`admin_eliminar_usuario(p_usuario_id)`:** 
+  - Elimina usuario de `auth.users` (cascada a `public.usuarios`)
+  - Valida que caller sea admin de misma org o super_admin
+  - Protege contra auto-eliminación
+  - SECURITY DEFINER para acceso a auth.users
+- **`admin_listar_usuarios(p_org_id DEFAULT NULL)`:**
+  - Lista usuarios de organización filtrada
+  - Incluye estado `email_confirmado` (boolean)
+  - Respeta RLS: admin ve su org, super_admin puede filtrar cualquier org
+  - SECURITY DEFINER para unir `auth.users` con `public.usuarios`
+
+#### Eliminación de Eventos con Auditoría (`AdminHistorialPage.tsx`)
+- ✅ **Nuevo botón "Eliminar"** en tabla (desktop) y tarjetas (mobile)
+- ✅ **Solo eventos en estado `borrador`:** Botón deshabilitado con tooltip explicativo
+- ✅ **AlertDialog de confirmación:** Aviso de que no se puede deshacer + registro en auditoría
+- ✅ **Registro automático en `audit_log`:**
+  - Acción: `evento_eliminado`
+  - Detalle: nombre, estado del evento
+  - Usuario ID y org ID registrados
+- ✅ **Limpieza:** Si evento era "en foco", se borra la preferencia localStorage
+- ✅ **Toast de éxito** tras eliminación
+
 ---
 
 ## Notas de desarrollo

@@ -9,7 +9,11 @@
       "Bash(xargs grep *)",
       "Bash(grep -n \"create or replace function\" /f/Programas/concurso/conuro-app/supabase/migrations/*.sql)",
       "Bash(grep -n \"create policy\\\\|ALTER TABLE.*ENABLE RLS\" /f/Programas/concurso/conuro-app/supabase/migrations/*.sql)",
-      "Bash(grep -A10 \"create table.*usuarios\" /f/Programas/concurso/conuro-app/supabase/migrations/*.sql)"
+      "Bash(grep -A10 \"create table.*usuarios\" /f/Programas/concurso/conuro-app/supabase/migrations/*.sql)",
+      "Bash(find /f/Programas/concurso/conuro-app/src/pages/administrador -name \"*.tsx\" -exec basename {} \\\\;)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
+      "Bash(npx tsc *)",
+      "mcp__supabase__list_projects"
     ]
   },
   "enableAllProjectMcpServers": true,

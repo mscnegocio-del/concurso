@@ -1,4 +1,4 @@
-import { CheckCircle2, Copy, Loader2, Radio } from 'lucide-react'
+import { CheckCircle2, ChevronDown, ChevronRight, Copy, Loader2, Radio } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { DesempateInlinePanel } from '@/components/coordinacion/DesempateInlinePanel'
@@ -33,6 +33,16 @@ type ProgresoFila = {
   calificaciones_esperadas: number
   publicado?: boolean
   paso_revelacion?: number
+}
+
+type ProgresoJurado = {
+  jurado_id: string
+  jurado_nombre: string
+  jurado_orden: number
+  categoria_id: string
+  categoria_nombre: string
+  calificaciones_registradas: number
+  calificaciones_esperadas: number
 }
 
 type HistorialFila = {
@@ -84,6 +94,8 @@ export function CoordinacionSalaPanel({
   const [criterios, setCriterios] = useState<Array<{ id: string; nombre: string; es_criterio_desempate: boolean }>>([])
   const [desempateActivo, setDesempateActivo] = useState<{ categoriaId: string; lugar: number } | null>(null)
   const [desempateBusy, setDesempateBusy] = useState(false)
+  const [progresoJurados, setProgresoJurados] = useState<ProgresoJurado[]>([])
+  const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set())
 
   const appOrigin = typeof window !== 'undefined' ? window.location.origin : ''
   const urlPublica = evento ? `${appOrigin}/publico/${evento.codigo_acceso}` : ''
@@ -100,6 +112,14 @@ export function CoordinacionSalaPanel({
     }
     setProgreso((data ?? []) as ProgresoFila[])
     setLastSyncedAt(new Date())
+  }, [evento?.id])
+
+  const cargarProgresoJurados = useCallback(async () => {
+    if (!evento?.id) return
+    const { data, error: e } = await supabase.rpc('coordinador_progreso_jurados', {
+      p_evento_id: evento.id,
+    })
+    if (!e) setProgresoJurados((data ?? []) as ProgresoJurado[])
   }, [evento?.id])
 
   const cargarHistorial = useCallback(async () => {
@@ -165,8 +185,9 @@ export function CoordinacionSalaPanel({
     queueMicrotask(() => {
       void cargarProgreso()
       void cargarHistorial()
+      void cargarProgresoJurados()
     })
-  }, [evento?.id, cargarProgreso, cargarHistorial])
+  }, [evento?.id, cargarProgreso, cargarHistorial, cargarProgresoJurados])
 
   useEffect(() => {
     const eid = evento?.id
@@ -223,15 +244,20 @@ export function CoordinacionSalaPanel({
 
   useEffect(() => {
     if (!evento?.id) return
-    const t = window.setInterval(() => void cargarProgreso(), POLL_MS)
+    const t = window.setInterval(() => {
+      void cargarProgreso()
+      void cargarProgresoJurados()
+    }, POLL_MS)
     return () => window.clearInterval(t)
-  }, [evento?.id, cargarProgreso])
+  }, [evento?.id, cargarProgreso, cargarProgresoJurados])
 
   useEffect(() => {
     setProgreso([])
     setHistorial([])
     setCatPreview('')
     setDesempateActivo(null)
+    setProgresoJurados([])
+    setExpandedCats(new Set())
   }, [evento?.id])
 
   useEffect(() => {
@@ -500,32 +526,78 @@ export function CoordinacionSalaPanel({
           const pct = esp > 0 ? Math.min(100, Math.round((reg / esp) * 100)) : 0
           const completa = pct === 100
           const publicada = publicadosSet.has(r.categoria_id)
+          const isExpanded = expandedCats.has(r.categoria_id)
+          const juradosFila = progresoJurados.filter((j) => j.categoria_id === r.categoria_id)
+
+          function toggleExpand() {
+            setExpandedCats((prev) => {
+              const next = new Set(prev)
+              if (next.has(r.categoria_id)) next.delete(r.categoria_id)
+              else next.add(r.categoria_id)
+              return next
+            })
+          }
+
           return (
             <li key={r.categoria_id} className="py-3 text-sm">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-2 min-w-0">
-                  {completa ? (
-                    <CheckCircle2 className="size-4 shrink-0 text-green-500" aria-hidden />
-                  ) : (
-                    <span className="size-4 shrink-0" aria-hidden />
-                  )}
-                  <span className="font-medium text-foreground truncate">{r.categoria_nombre}</span>
+              <button
+                type="button"
+                className="w-full text-left"
+                onClick={toggleExpand}
+                aria-expanded={isExpanded}
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {completa ? (
+                      <CheckCircle2 className="size-4 shrink-0 text-green-500" aria-hidden />
+                    ) : (
+                      <span className="size-4 shrink-0" aria-hidden />
+                    )}
+                    <span className="font-medium text-foreground truncate">{r.categoria_nombre}</span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {publicada && (
+                      <Badge variant="secondary" className="text-xs">publicada</Badge>
+                    )}
+                    <span className="text-muted-foreground tabular-nums">
+                      {reg}/{esp}
+                    </span>
+                    {juradosFila.length > 0 && (
+                      isExpanded
+                        ? <ChevronDown className="size-4 text-muted-foreground" aria-hidden />
+                        : <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {publicada && (
-                    <Badge variant="secondary" className="text-xs">publicada</Badge>
-                  )}
-                  <span className="text-muted-foreground tabular-nums">
-                    {reg}/{esp}
-                  </span>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className={cn('h-full rounded-full transition-all', completa ? 'bg-green-500' : 'bg-primary')}
+                    style={{ width: `${pct}%` }}
+                  />
                 </div>
-              </div>
-              <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
-                <div
-                  className={cn('h-full rounded-full transition-all', completa ? 'bg-green-500' : 'bg-primary')}
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
+              </button>
+
+              {isExpanded && juradosFila.length > 0 && (
+                <ul className="mt-2 space-y-1 pl-6 border-l-2 border-border">
+                  {juradosFila.map((jf) => {
+                    const jEsp = Number(jf.calificaciones_esperadas)
+                    const jReg = Number(jf.calificaciones_registradas)
+                    const jCompleta = jEsp > 0 && jReg >= jEsp
+                    return (
+                      <li
+                        key={jf.jurado_id}
+                        className="flex items-center justify-between gap-3 text-xs text-muted-foreground"
+                      >
+                        <span className={cn('truncate', jCompleta && 'text-green-600 dark:text-green-400 font-medium')}>
+                          {jCompleta && <CheckCircle2 className="inline size-3 mr-1" aria-hidden />}
+                          {jf.jurado_nombre}
+                        </span>
+                        <span className="shrink-0 tabular-nums">{jReg}/{jEsp}</span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
             </li>
           )
         })}

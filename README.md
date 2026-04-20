@@ -18,7 +18,59 @@ Sistema web multi-tenant para instituciones que organizan concursos evaluados po
 
 ## Novedades recientes
 
-### Sprint 8 (15 de abril 2026)
+### Sprint 8 — Reorganización UI y Gestión de Usuarios (15 de abril 2026)
+
+#### Sidebars reorganizados con iconos
+- **Admin:** Nuevo sidebar con 6 ítems + iconos (Inicio, **Historial**, **Usuarios**, Plantillas, Organización, Panel en vivo)
+  - ✅ "Gestión del evento" eliminado (acceso via Historial)
+  - ✅ Renombrado "Coordinación de sala" → "Panel en vivo"
+  - ✅ Fix duplicado "Inicio" → ahora "Panel de control"
+  
+- **Coordinador:** 2 ítems + iconos (Inicio, Historial)
+- **Super Admin:** 2 ítems + iconos (Organizaciones, **Usuarios**)
+
+#### Gestión de Usuarios ✨ NUEVO
+- **Admin (`/admin/usuarios`):**
+  - 📧 Invitar coordinador por email (invitación automática Supabase Auth)
+  - 👥 Listar usuarios con estado de confirmación (Confirmado/Pendiente)
+  - 🗑️ Eliminar coordinador (protección contra auto-eliminación)
+  - 🔄 Realtime: actualizaciones automáticas en lista
+
+- **Super Admin (`/super/usuarios`):**
+  - 🏢 Selector de organización
+  - 📧 Invitar admin o coordinador a cualquier org
+  - 👥 Listar usuarios por org con estado
+  - 🗑️ Eliminar usuario (solo super_admin)
+  - 🔄 Realtime: cambios automáticos por org
+
+- **Edge Function `invite-user`:**
+  - Autenticación JWT + validación de permisos
+  - Invitación por email (Supabase Auth native)
+  - Inserción automática en `public.usuarios`
+  - Manejo de errores con rollback
+
+- **RPCs nuevas (`20260415_005_admin_usuarios_rpcs.sql`):**
+  - `admin_eliminar_usuario(p_usuario_id)` — elimina con validaciones
+  - `admin_listar_usuarios(p_org_id)` — lista con estado de confirmación
+
+#### Eliminación de Eventos con Auditoría
+- ✅ Nuevo botón **"Eliminar"** en tabla de historial (desktop + mobile)
+- ✅ Solo eventos en `borrador` (botón deshabilitado si otro estado)
+- ✅ Confirmación con AlertDialog
+- ✅ Registro en `audit_log`: acción `evento_eliminado`, detalles del evento
+- ✅ Limpieza de preferencias (evento "en foco" si aplica)
+
+#### Checklist nuevo
+- [ ] Admin → `/admin/usuarios` → invitar coordinador por email
+- [ ] Usuario recibe email de invitación → confirma cuenta
+- [ ] Coordinador aparece en lista con badge "Confirmado"
+- [ ] Super Admin → `/super/usuarios` → selector org → invitar admin a otra org
+- [ ] `/admin/historial` → evento en borrador → botón "Eliminar" habilitado
+- [ ] Evento en otro estado → botón "Eliminar" deshabilitado (tooltip)
+- [ ] Confirmar eliminación → audit_log registra acción
+- [ ] Sidebars muestran iconos correctamente (Inicio ≠ duplicado)
+
+### Sprint 8 (15 de abril 2026) — Anteriores
 
 #### Configuración flexible de pantalla pública
 - **Flyer / Imagen del evento (opcional):**
@@ -76,14 +128,31 @@ Sistema web multi-tenant para instituciones que organizan concursos evaluados po
 
 ## Rutas principales
 
+### Admin
+- `/admin` — **Panel de control** (dashboard con estadísticas, crear evento rápido, últimos eventos)
+- `/admin/evento/:id` — configuración evento (categorías, criterios, participantes, jurados, TV toggle, flyer)
+- `/admin/historial` — lista eventos con CRUD (crear, clonar, **eliminar** con auditoría)
+- `/admin/usuarios` — **gestionar coordinadores** ✨ NUEVO (invitar, listar, eliminar con Realtime)
+- `/admin/plantillas-criterios` — CRUD plantillas de criterios
+- `/admin/organizacion` — logos, branding, sonido
+- `/admin/coordinacion` — coordinación de sala (renombrado de "Coordinación")
+
+### Coordinador
+- `/administrador` — panel inicial (próximos eventos)
+- `/administrador/historial` — historial eventos
+- `/administrador/evento/:id` — coordinación/publicación (progreso, ranking, desempate inline si no hay TV)
+
+### Super Admin
+- `/super` — gestión de organizaciones (crear, cambiar plan, toggle activo)
+- `/super/usuarios` — **gestionar usuarios multi-org** ✨ NUEVO (invitar admin/coordinador, listar, eliminar con Realtime)
+
+### Público/Jurado/Auth
 - `/login` — acceso OTP (`admin`, `administrador`, `super_admin`)
-- `/admin/evento` — configuración (+ nueva sección `SeccionToggleTV`, + upload flyer)
-- `/admin/historial` — lista eventos, crear (+ opción "¿Con TV?")
-- `/admin/plantillas-criterios` — CRUD plantillas
-- `/administrador` — coordinación/publicación (+ desempate inline si `tiene_tv_publica = false`)
-- `/jurado` y `/jurado/panel/*`
+- `/jurado` — login jurado (código evento + nombre)
+- `/jurado/panel` — dashboard jurado (categorías)
+- `/jurado/panel/categoria/:id` — listar participantes
+- `/jurado/panel/categoria/:id/participante/:pid` — calificación
 - `/publico/:codigo_acceso` — pantalla TV/navegador (flyer en estado `abierto`, de lo contrario progreso + podio)
-- `/super` — gestión de organizaciones
 
 ## Arranque local rápido
 

@@ -1801,6 +1801,13 @@ async function validarListoParaAbrir(eventoId: string): Promise<string | null> {
   return null
 }
 
+type JuradoIncompleto = {
+  jurado_nombre: string
+  calificaciones_registradas: number
+  calificaciones_esperadas: number
+  porcentaje: number
+}
+
 function SeccionEstado({
   evento,
   perfil,
@@ -1813,6 +1820,8 @@ function SeccionEstado({
   setError: (s: string | null) => void
 }) {
   const [busy, setBusy] = useState(false)
+  const [checkingCierre, setCheckingCierre] = useState(false)
+  const [cerrarWarning, setCerrarWarning] = useState<JuradoIncompleto[] | null>(null)
 
   async function transicion(nuevo: EstadoEvento) {
     setError(null)
@@ -1859,6 +1868,61 @@ function SeccionEstado({
     }
   }
 
+  async function solicitarCerrar() {
+    setError(null)
+    setCheckingCierre(true)
+    try {
+      const { data, error: e } = await supabase.rpc('coordinador_progreso_jurados', {
+        p_evento_id: evento.id,
+      })
+      if (e) {
+        setError(e.message)
+        return
+      }
+
+      // Agregar totales por jurado sumando todas las categorías
+      const porJurado = new Map<string, { nombre: string; reg: number; esp: number }>()
+      for (const row of (data ?? []) as Array<{
+        jurado_id: string
+        jurado_nombre: string
+        calificaciones_registradas: number
+        calificaciones_esperadas: number
+      }>) {
+        const existing = porJurado.get(row.jurado_id)
+        if (existing) {
+          existing.reg += Number(row.calificaciones_registradas)
+          existing.esp += Number(row.calificaciones_esperadas)
+        } else {
+          porJurado.set(row.jurado_id, {
+            nombre: row.jurado_nombre,
+            reg: Number(row.calificaciones_registradas),
+            esp: Number(row.calificaciones_esperadas),
+          })
+        }
+      }
+
+      const incompletos: JuradoIncompleto[] = []
+      for (const [, v] of porJurado) {
+        if (v.esp > 0 && v.reg < v.esp) {
+          incompletos.push({
+            jurado_nombre: v.nombre,
+            calificaciones_registradas: v.reg,
+            calificaciones_esperadas: v.esp,
+            porcentaje: Math.round((v.reg / v.esp) * 100),
+          })
+        }
+      }
+
+      if (incompletos.length === 0) {
+        await transicion('cerrado')
+      } else {
+        setCerrarWarning(incompletos)
+      }
+    } finally {
+      setCheckingCierre(false)
+    }
+  }
+
   return (
     <SimplePanel>
       <h3 className="text-lg font-semibold text-slate-900">Estado del evento</h3>
@@ -1891,15 +1955,63 @@ function SeccionEstado({
         {evento.estado === 'calificando' && (
           <button
             type="button"
-            disabled={busy}
+            disabled={busy || checkingCierre}
             className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-            onClick={() => void transicion('cerrado')}
+            onClick={() => void solicitarCerrar()}
           >
-            {busy ? <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden /> : null}
+            {(busy || checkingCierre) ? <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden /> : null}
             Cerrar calificación
           </button>
         )}
       </div>
+
+      <AlertDialog
+        open={cerrarWarning !== null}
+        onOpenChange={(o) => {
+          if (!o && !busy) setCerrarWarning(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Calificaciones incompletas</AlertDialogTitle>
+            <AlertDialogDescription>
+              Los siguientes jurados aún no han terminado de calificar:
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <ul className="mb-4 space-y-1 px-1 text-sm">
+            {(cerrarWarning ?? []).map((j) => (
+              <li key={j.jurado_nombre} className="flex items-center justify-between gap-4">
+                <span className="font-medium text-foreground">{j.jurado_nombre}</span>
+                <span className="shrink-0 tabular-nums text-muted-foreground">
+                  {j.calificaciones_registradas}/{j.calificaciones_esperadas} ({j.porcentaje}%)
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="px-1 text-sm text-muted-foreground">¿Deseas cerrar la calificación de todas formas?</p>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={busy}
+              onClick={(e) => {
+                e.preventDefault()
+                setCerrarWarning(null)
+                void transicion('cerrado')
+              }}
+            >
+              {busy ? (
+                <>
+                  <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                  Cerrando…
+                </>
+              ) : (
+                'Cerrar de todas formas'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </SimplePanel>
   )
 }
