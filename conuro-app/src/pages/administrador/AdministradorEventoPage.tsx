@@ -20,7 +20,7 @@ export function AdministradorEventoPage() {
     setError(null)
     const { data, error: e } = await supabase
       .from('eventos')
-      .select('id, nombre, estado, codigo_acceso, puestos_a_premiar, modo_revelacion_podio, tiene_tv_publica')
+      .select('id, organizacion_id, nombre, descripcion, fecha, estado, codigo_acceso, puestos_a_premiar, modo_revelacion_podio, tiene_tv_publica')
       .eq('id', eventoId)
       .eq('organizacion_id', orgId)
       .maybeSingle()

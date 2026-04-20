@@ -11,10 +11,14 @@ import { registrarAuditoria } from '@/lib/audit'
 import { copyText } from '@/lib/clipboard'
 import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
+import { AdminExportaciones } from '@/pages/admin/AdminExportaciones'
 
 export type CoordinacionEvento = {
   id: string
+  organizacion_id?: string
   nombre: string
+  descripcion?: string | null
+  fecha?: string
   estado: string
   codigo_acceso: string
   puestos_a_premiar: number
@@ -97,6 +101,7 @@ export function CoordinacionSalaPanel({
   const [progresoJurados, setProgresoJurados] = useState<ProgresoJurado[]>([])
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set())
   const [iniciandoCal, setIniciandoCal] = useState(false)
+  const [orgPlan, setOrgPlan] = useState<string>('gratuito')
 
   const appOrigin = typeof window !== 'undefined' ? window.location.origin : ''
   const urlPublica = evento ? `${appOrigin}/publico/${evento.codigo_acceso}` : ''
@@ -272,6 +277,18 @@ export function CoordinacionSalaPanel({
     }
     void loadCriterios()
   }, [evento?.id])
+
+  useEffect(() => {
+    if (!orgId) return
+    void supabase
+      .from('organizaciones')
+      .select('plan')
+      .eq('id', orgId)
+      .maybeSingle()
+      .then(({ data }) => {
+        setOrgPlan((data as { plan?: string } | null)?.plan ?? 'gratuito')
+      })
+  }, [orgId])
 
   useEffect(() => {
     if (!filaActivaEscalonada) return
@@ -883,6 +900,25 @@ export function CoordinacionSalaPanel({
         {seccionPublicar}
         <div className="lg:col-span-2">{seccionHistorial}</div>
       </div>
+
+      {/* ── Exportación (cerrado/publicado) ────────────────────────── */}
+      {(evento.estado === 'cerrado' || evento.estado === 'publicado') &&
+        evento.organizacion_id && evento.fecha && (
+          <AdminExportaciones
+            evento={{
+              id: evento.id,
+              organizacion_id: evento.organizacion_id,
+              nombre: evento.nombre,
+              descripcion: evento.descripcion ?? null,
+              fecha: evento.fecha,
+              estado: evento.estado,
+              puestos_a_premiar: evento.puestos_a_premiar,
+              codigo_acceso: evento.codigo_acceso,
+            }}
+            planOrganizacion={orgPlan}
+            setError={setError}
+          />
+        )}
     </div>
   )
 }

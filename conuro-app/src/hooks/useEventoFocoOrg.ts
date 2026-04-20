@@ -4,7 +4,10 @@ import { supabase } from '@/lib/supabase'
 
 export type EventoFocoRow = {
   id: string
+  organizacion_id?: string
   nombre: string
+  descripcion?: string | null
+  fecha?: string
   estado: string
   codigo_acceso: string
   puestos_a_premiar: number
@@ -32,7 +35,7 @@ export function useEventoFocoOrg(orgId: string | undefined) {
     if (targetId) {
       const { data: row } = await supabase
         .from('eventos')
-        .select('id, nombre, estado, codigo_acceso, puestos_a_premiar, modo_revelacion_podio, tiene_tv_publica')
+        .select('id, organizacion_id, nombre, descripcion, fecha, estado, codigo_acceso, puestos_a_premiar, modo_revelacion_podio, tiene_tv_publica')
         .eq('id', targetId)
         .eq('organizacion_id', orgId)
         .maybeSingle()
@@ -44,7 +47,7 @@ export function useEventoFocoOrg(orgId: string | undefined) {
     }
     const { data: latest, error: e } = await supabase
       .from('eventos')
-      .select('id, nombre, estado, codigo_acceso, puestos_a_premiar, modo_revelacion_podio, tiene_tv_publica')
+      .select('id, organizacion_id, nombre, descripcion, fecha, estado, codigo_acceso, puestos_a_premiar, modo_revelacion_podio, tiene_tv_publica')
       .eq('organizacion_id', orgId)
       .order('created_at', { ascending: false })
       .limit(1)
