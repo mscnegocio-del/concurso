@@ -45,7 +45,6 @@ export function JuradoDashboardPage() {
   useEffect(() => {
     if (!eventoId) return
 
-    const token = session?.tokenSesion
     const t = window.setInterval(() => void cargarCategorias(), 10_000)
 
     const ch = supabase
