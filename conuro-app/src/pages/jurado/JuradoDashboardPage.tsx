@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -17,18 +17,51 @@ type Fila = {
 export function JuradoDashboardPage() {
   const { session } = useJurado()
   const [rows, setRows] = useState<Fila[]>([])
+  const [eventoId, setEventoId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  const cargarCategorias = useCallback(async () => {
+    if (!session?.tokenSesion) return
+    const { data, error: e } = await supabase.rpc('jurado_listar_categorias', {
+      p_token: session.tokenSesion,
+    })
+    if (e) setError(e.message)
+    else setRows((data ?? []) as Fila[])
+  }, [session?.tokenSesion])
 
   useEffect(() => {
     if (!session?.tokenSesion) return
     void (async () => {
-      const { data, error: e } = await supabase.rpc('jurado_listar_categorias', {
-        p_token: session.tokenSesion,
-      })
-      if (e) setError(e.message)
-      else setRows((data ?? []) as Fila[])
+      // Cargar categorías
+      await cargarCategorias()
+      // Obtener evento_id para Realtime
+      const { data } = await supabase.rpc('jurado_resolver_sesion', { p_token: session.tokenSesion })
+      const row = data?.[0] as { evento_id: string } | undefined
+      if (row?.evento_id) setEventoId(row.evento_id)
     })()
-  }, [session?.tokenSesion])
+  }, [session?.tokenSesion, cargarCategorias])
+
+  // Realtime + polling para refrescar al cambiar estado del evento
+  useEffect(() => {
+    if (!eventoId) return
+
+    const token = session?.tokenSesion
+    const t = window.setInterval(() => void cargarCategorias(), 10_000)
+
+    const ch = supabase
+      .channel(`jurado-dashboard-evento-${eventoId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'eventos', filter: `id=eq.${eventoId}` },
+        () => void cargarCategorias(),
+      )
+      .subscribe()
+
+    return () => {
+      window.clearInterval(t)
+      void supabase.removeChannel(ch)
+    }
+  }, [eventoId, session?.tokenSesion, cargarCategorias])
 
   if (!session) return null
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -13,19 +13,49 @@ export function JuradoCategoriaPage() {
   const { categoriaId } = useParams<{ categoriaId: string }>()
   const { session } = useJurado()
   const [parts, setParts] = useState<Part[]>([])
+  const [eventoId, setEventoId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  const cargarParticipantes = useCallback(async () => {
+    if (!session?.tokenSesion || !categoriaId) return
+    const { data, error: e } = await supabase.rpc('jurado_listar_participantes', {
+      p_token: session.tokenSesion,
+      p_categoria_id: categoriaId,
+    })
+    if (e) setError(e.message)
+    else setParts((data ?? []) as Part[])
+  }, [session?.tokenSesion, categoriaId])
 
   useEffect(() => {
     if (!session?.tokenSesion || !categoriaId) return
     void (async () => {
-      const { data, error: e } = await supabase.rpc('jurado_listar_participantes', {
-        p_token: session.tokenSesion,
-        p_categoria_id: categoriaId,
-      })
-      if (e) setError(e.message)
-      else setParts((data ?? []) as Part[])
+      await cargarParticipantes()
+      const { data } = await supabase.rpc('jurado_resolver_sesion', { p_token: session.tokenSesion })
+      const row = data?.[0] as { evento_id: string } | undefined
+      if (row?.evento_id) setEventoId(row.evento_id)
     })()
-  }, [session?.tokenSesion, categoriaId])
+  }, [session?.tokenSesion, categoriaId, cargarParticipantes])
+
+  // Realtime + polling para refrescar al cambiar estado del evento
+  useEffect(() => {
+    if (!eventoId) return
+
+    const t = window.setInterval(() => void cargarParticipantes(), 10_000)
+
+    const ch = supabase
+      .channel(`jurado-categoria-evento-${eventoId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'eventos', filter: `id=eq.${eventoId}` },
+        () => void cargarParticipantes(),
+      )
+      .subscribe()
+
+    return () => {
+      window.clearInterval(t)
+      void supabase.removeChannel(ch)
+    }
+  }, [eventoId, cargarParticipantes])
 
   const firstIncomplete = useMemo(
     () => parts.findIndex((p) => !p.completo),

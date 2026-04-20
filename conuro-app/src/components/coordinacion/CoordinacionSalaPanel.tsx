@@ -96,6 +96,7 @@ export function CoordinacionSalaPanel({
   const [desempateBusy, setDesempateBusy] = useState(false)
   const [progresoJurados, setProgresoJurados] = useState<ProgresoJurado[]>([])
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set())
+  const [iniciandoCal, setIniciandoCal] = useState(false)
 
   const appOrigin = typeof window !== 'undefined' ? window.location.origin : ''
   const urlPublica = evento ? `${appOrigin}/publico/${evento.codigo_acceso}` : ''
@@ -383,6 +384,29 @@ export function CoordinacionSalaPanel({
     }
   }
 
+  async function iniciarCalificacion() {
+    if (!evento) return
+    setIniciandoCal(true)
+    try {
+      const { error: e } = await supabase
+        .from('eventos')
+        .update({ estado: 'calificando' })
+        .eq('id', evento.id)
+      if (e) { setError(e.message); return }
+      await registrarAuditoria({
+        organizacionId: orgId,
+        eventoId: evento.id,
+        usuarioId: perfil.id,
+        accion: 'evento_estado',
+        detalle: { anterior: 'abierto', nuevo: 'calificando' },
+      })
+      toast.success('Calificación iniciada.')
+      onReloadEvento()
+    } finally {
+      setIniciandoCal(false)
+    }
+  }
+
   async function copiarUrl() {
     if (!urlPublica) return
     const ok = await copyText(urlPublica)
@@ -505,6 +529,23 @@ export function CoordinacionSalaPanel({
         <p className="mt-3 text-sm text-muted-foreground">
           Este evento no tiene pantalla pública activa. Los resultados publicados quedan registrados en historial y exportaciones.
         </p>
+      )}
+      {evento.estado === 'abierto' && (
+        <div className="mt-4 rounded-lg border border-indigo-200 bg-indigo-50 dark:border-indigo-800 dark:bg-indigo-950/30 p-4">
+          <p className="text-sm font-medium text-indigo-800 dark:text-indigo-200">
+            El evento está abierto. Los jurados pueden entrar pero aún no calificar.
+          </p>
+          <Button
+            type="button"
+            disabled={iniciandoCal}
+            onClick={() => void iniciarCalificacion()}
+            className="mt-3 gap-2 bg-indigo-700 hover:bg-indigo-800 text-white"
+            size="sm"
+          >
+            {iniciandoCal ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+            Iniciar calificación
+          </Button>
+        </div>
       )}
       {error && (
         <Alert variant="destructive" className="mt-3">

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   AlertDialog,
+  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -49,6 +50,8 @@ export function JuradoCalificarPage() {
   const [parts, setParts] = useState<PartRow[]>([])
   const [scores, setScores] = useState<Record<string, number>>({})
   const [estadoEvento, setEstadoEvento] = useState<string | null>(null)
+  const [eventoId, setEventoId] = useState<string | null>(null)
+  const [alertaCierre, setAlertaCierre] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -59,8 +62,9 @@ export function JuradoCalificarPage() {
     const { data: ses } = await supabase.rpc('jurado_resolver_sesion', {
       p_token: session.tokenSesion,
     })
-    const row = ses?.[0] as { evento_estado: string } | undefined
+    const row = ses?.[0] as { evento_estado: string; evento_id: string } | undefined
     setEstadoEvento(row?.evento_estado ?? null)
+    if (row?.evento_id) setEventoId(row.evento_id)
 
     const { data: crit, error: e1 } = await supabase.rpc('jurado_listar_criterios', {
       p_token: session.tokenSesion,
@@ -114,6 +118,37 @@ export function JuradoCalificarPage() {
       void loadAll()
     })
   }, [loadAll])
+
+  // Realtime + polling para detectar cambios de estado del evento en tiempo real
+  useEffect(() => {
+    if (!eventoId) return
+
+    const token = session?.tokenSesion
+    const t = window.setInterval(async () => {
+      if (!token) return
+      const { data } = await supabase.rpc('jurado_resolver_sesion', { p_token: token })
+      const r = data?.[0] as { evento_estado: string } | undefined
+      if (r) setEstadoEvento(r.evento_estado)
+    }, 10_000)
+
+    const ch = supabase
+      .channel(`jurado-calificar-evento-${eventoId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'eventos', filter: `id=eq.${eventoId}` },
+        (payload) => {
+          const nuevo = (payload.new as { estado: string }).estado
+          setEstadoEvento(nuevo)
+          if (nuevo === 'cerrado') setAlertaCierre(true)
+        },
+      )
+      .subscribe()
+
+    return () => {
+      window.clearInterval(t)
+      void supabase.removeChannel(ch)
+    }
+  }, [eventoId, session?.tokenSesion])
 
   const puedeEditar = estadoEvento === 'calificando'
 
@@ -378,5 +413,22 @@ export function JuradoCalificarPage() {
         )}
       </CardContent>
     </Card>
+
+    {/* Alerta en tiempo real cuando el evento es cerrado por el admin/coordinador */}
+    <AlertDialog open={alertaCierre}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Calificación cerrada</AlertDialogTitle>
+          <AlertDialogDescription>
+            El administrador ha cerrado la calificación. Tus notas quedaron guardadas y ya no pueden modificarse.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogAction onClick={() => setAlertaCierre(false)}>
+            Entendido
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }
