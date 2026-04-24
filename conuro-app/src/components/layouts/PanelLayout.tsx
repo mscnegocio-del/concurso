@@ -184,6 +184,6 @@ export function PanelLayout({
   )
 }
 
-export function SimplePanel({ children }: { children: ReactNode }) {
-  return <Card className="p-6 shadow-sm">{children}</Card>
+export function SimplePanel({ children, className }: { children: ReactNode; className?: string }) {
+  return <Card className={cn('p-6 shadow-sm', className)}>{children}</Card>
 }

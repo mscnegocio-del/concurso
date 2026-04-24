@@ -1,22 +1,16 @@
-import { Copy, Loader2 } from 'lucide-react'
+import { ArrowRight, CalendarCheck2, CalendarDays, Copy, Crown, MonitorPlay, Sparkles, Trophy, Users } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { SimplePanel } from '@/components/layouts/PanelLayout'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/hooks/useAuth'
-import { registrarAuditoria } from '@/lib/audit'
-import { getStoredEventoFoco } from '@/lib/admin-evento-foco'
 import { copyText } from '@/lib/clipboard'
-import { crearEventoBorrador } from '@/lib/crear-evento-borrador'
-import { maxJuradosPorPlan } from '@/lib/planes'
+import { maxJuradosPorPlan, normalizarPlan, puedeExportarPdf } from '@/lib/planes'
 import { supabase } from '@/lib/supabase'
-import { cn } from '@/lib/utils'
 
 type EventoLista = {
   id: string
@@ -27,23 +21,50 @@ type EventoLista = {
   created_at: string
 }
 
+const ESTADOS_ACTIVOS = new Set(['abierto', 'calificando'])
+const ESTADOS_REALIZADOS = new Set(['cerrado', 'publicado'])
+
+const ESTADO_LABEL: Record<string, string> = {
+  borrador: 'Borrador',
+  abierto: 'Abierto',
+  calificando: 'Calificando',
+  cerrado: 'Cerrado',
+  publicado: 'Publicado',
+}
+
+const PLAN_LABEL: Record<string, string> = {
+  gratuito: 'Gratuito',
+  basico: 'Básico',
+  institucional: 'Institucional',
+}
+
+function formatFechaLarga(fecha: string): string {
+  try {
+    return new Date(fecha + 'T00:00:00').toLocaleDateString('es-PE', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    })
+  } catch {
+    return fecha
+  }
+}
+
 export function AdminDashboardPage() {
   const { perfil } = useAuth()
-  const navigate = useNavigate()
   const orgId = perfil?.organizacionId
   const [orgNombre, setOrgNombre] = useState<string>('')
   const [orgPlan, setOrgPlan] = useState<string>('gratuito')
   const [eventos, setEventos] = useState<EventoLista[]>([])
+  const [totalJurados, setTotalJurados] = useState<number | null>(null)
+  const [totalParticipantes, setTotalParticipantes] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [createBusy, setCreateBusy] = useState(false)
-  const [createErr, setCreateErr] = useState<string | null>(null)
-
-  const focoId = orgId ? getStoredEventoFoco(orgId) : null
 
   const load = useCallback(async () => {
     if (!orgId) return
     setError(null)
+
     const { data: org, error: e0 } = await supabase
       .from('organizaciones')
       .select('nombre, plan')
@@ -54,14 +75,42 @@ export function AdminDashboardPage() {
       setOrgNombre((org as { nombre?: string })?.nombre ?? '')
       setOrgPlan((org as { plan?: string })?.plan ?? 'gratuito')
     }
+
     const { data, error: e } = await supabase
       .from('eventos')
       .select('id, nombre, fecha, estado, codigo_acceso, created_at')
       .eq('organizacion_id', orgId)
       .order('created_at', { ascending: false })
-      .limit(12)
     if (e) setError(e.message)
     else setEventos((data ?? []) as EventoLista[])
+
+    const eventoIds = ((data ?? []) as EventoLista[]).map((x) => x.id)
+    if (eventoIds.length === 0) {
+      setTotalJurados(0)
+      setTotalParticipantes(0)
+      return
+    }
+
+    const { count: juradosCount } = await supabase
+      .from('jurados')
+      .select('id', { count: 'exact', head: true })
+      .in('evento_id', eventoIds)
+    setTotalJurados(juradosCount ?? 0)
+
+    const { data: cats } = await supabase
+      .from('categorias')
+      .select('id')
+      .in('evento_id', eventoIds)
+    const catIds = (cats ?? []).map((c: { id: string }) => c.id)
+    if (catIds.length === 0) {
+      setTotalParticipantes(0)
+    } else {
+      const { count: partCount } = await supabase
+        .from('participantes')
+        .select('id', { count: 'exact', head: true })
+        .in('categoria_id', catIds)
+      setTotalParticipantes(partCount ?? 0)
+    }
   }, [orgId])
 
   useEffect(() => {
@@ -78,39 +127,6 @@ export function AdminDashboardPage() {
     else toast.error('No se pudo copiar al portapapeles')
   }
 
-  async function onCrearRapido(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    if (!orgId || !perfil) return
-    setCreateErr(null)
-    const fd = new FormData(e.currentTarget)
-    const nombre = String(fd.get('nombre') ?? '').trim()
-    const fecha = String(fd.get('fecha') ?? '')
-    const puestos = Number(fd.get('puestos') ?? 3) === 2 ? 2 : 3
-    setCreateBusy(true)
-    try {
-      const { data, error: errMsg } = await crearEventoBorrador(supabase, {
-        orgId,
-        nombre,
-        fecha,
-        puestos,
-      })
-      if (errMsg || !data) {
-        setCreateErr(errMsg ?? 'Error')
-        return
-      }
-      await registrarAuditoria({
-        organizacionId: orgId,
-        eventoId: data.id,
-        usuarioId: perfil.id,
-        accion: 'evento_creado',
-        detalle: { nombre: data.nombre },
-      })
-      navigate(`/admin/evento/${data.id}`)
-    } finally {
-      setCreateBusy(false)
-    }
-  }
-
   if (!perfil) return null
 
   if (!orgId) {
@@ -125,14 +141,22 @@ export function AdminDashboardPage() {
     return (
       <div className="space-y-6">
         <Skeleton className="h-10 w-2/3 max-w-md" />
-        <Skeleton className="h-40 w-full" />
-        <Skeleton className="h-48 w-full" />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-40 w-full" />
+        </div>
       </div>
     )
   }
 
-  const enFoco = focoId ? eventos.find((x) => x.id === focoId) ?? eventos[0] : eventos[0]
-  const recientes = eventos.slice(0, 5)
+  const eventoActivo = eventos.find((e) => ESTADOS_ACTIVOS.has(e.estado)) ?? null
+  const eventosRealizados = eventos.filter((e) => ESTADOS_REALIZADOS.has(e.estado))
+  const ultimoRealizado = eventosRealizados[0] ?? null
+  const planNorm = normalizarPlan(orgPlan)
+  const maxJur = maxJuradosPorPlan(orgPlan)
+  const permitePdf = puedeExportarPdf(orgPlan)
 
   return (
     <div className="space-y-6">
@@ -149,147 +173,186 @@ export function AdminDashboardPage() {
         </Alert>
       )}
 
-      <SimplePanel>
-        <h3 className="text-lg font-semibold text-foreground">Evento en foco</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Es el evento que usas para gestión, sala/TV y coordinación. Se recuerda en este navegador.
-        </p>
-        {enFoco ? (
-          <div className="mt-4 rounded-lg border border-border bg-muted/40 p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="grid gap-4 sm:grid-cols-2">
+        {/* 1. Evento activo */}
+        <SimplePanel>
+          <div className="flex items-start gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Sparkles className="size-5" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-base font-semibold text-foreground">Evento activo</h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Solo eventos en curso (abierto o calificando).
+              </p>
+            </div>
+          </div>
+
+          {eventoActivo ? (
+            <div className="mt-4 space-y-3">
               <div>
-                <p className="font-medium text-foreground">{enFoco.nombre}</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  <Badge variant="secondary" className="mr-2 font-normal">
-                    {enFoco.estado}
+                <p className="font-medium text-foreground">{eventoActivo.nombre}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                  <Badge variant="default" className="font-normal">
+                    {ESTADO_LABEL[eventoActivo.estado] ?? eventoActivo.estado}
                   </Badge>
-                  Fecha: {enFoco.fecha} · Código:{' '}
-                  <span className="inline-flex items-center gap-0.5 align-middle">
-                    <span className="font-mono text-foreground">{enFoco.codigo_acceso}</span>
+                  <span>{formatFechaLarga(eventoActivo.fecha)}</span>
+                  <span className="inline-flex items-center gap-0.5">
+                    <span className="font-mono text-foreground">{eventoActivo.codigo_acceso}</span>
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="size-8 shrink-0"
+                      className="size-7 shrink-0"
                       aria-label="Copiar código de acceso"
-                      title="Copiar código"
-                      onClick={() => void copiarCodigoAcceso(enFoco.codigo_acceso)}
+                      onClick={() => void copiarCodigoAcceso(eventoActivo.codigo_acceso)}
                     >
-                      <Copy className="size-4" aria-hidden />
+                      <Copy className="size-3.5" aria-hidden />
                     </Button>
                   </span>
-                </p>
+                </div>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button asChild>
-                  <Link to={`/admin/evento/${enFoco.id}`}>Abrir gestión</Link>
+                <Button size="sm" asChild>
+                  <Link to={`/admin/evento/${eventoActivo.id}`}>Gestionar</Link>
                 </Button>
-                <Button variant="outline" asChild>
-                  <Link to="/admin/coordinacion">Panel en vivo</Link>
+                <Button size="sm" variant="outline" asChild>
+                  <Link to="/admin/coordinacion">
+                    <MonitorPlay className="size-4" /> Panel en vivo
+                  </Link>
                 </Button>
               </div>
             </div>
-          </div>
-        ) : (
-          <p className="mt-4 text-sm text-muted-foreground">
-            No hay eventos todavía. Crea uno con el formulario de abajo o desde el historial.
-          </p>
-        )}
-      </SimplePanel>
-
-      <SimplePanel>
-        <h3 className="text-lg font-semibold text-foreground">Crear evento nuevo</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Borrador en blanco (categorías y criterios los configuras después).
-          {maxJuradosPorPlan(orgPlan) != null && (
-            <span className="text-amber-800 dark:text-amber-200">
-              {' '}
-              Plan gratuito: máximo {maxJuradosPorPlan(orgPlan)} jurados por evento.
-            </span>
-          )}
-        </p>
-        {createErr && (
-          <Alert variant="destructive" className="mt-3">
-            <AlertDescription>{createErr}</AlertDescription>
-          </Alert>
-        )}
-        <form className="mt-4 flex max-w-lg flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end" onSubmit={(e) => void onCrearRapido(e)}>
-          <div className="min-w-[10rem] flex-1 space-y-2">
-            <Label htmlFor="dash-nombre">Nombre</Label>
-            <Input id="dash-nombre" name="nombre" required placeholder="Nombre del concurso" />
-          </div>
-          <div className="w-full min-w-[8rem] space-y-2 sm:w-40">
-            <Label htmlFor="dash-fecha">Fecha</Label>
-            <Input id="dash-fecha" name="fecha" type="date" required />
-          </div>
-          <div className="w-full min-w-[8rem] space-y-2 sm:w-36">
-            <Label htmlFor="dash-puestos">Podio</Label>
-            <select
-              id="dash-puestos"
-              name="puestos"
-              defaultValue={3}
-              className="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-            >
-              <option value={2}>2 puestos</option>
-              <option value={3}>3 puestos</option>
-            </select>
-          </div>
-          <Button type="submit" disabled={createBusy} className="w-full sm:w-auto">
-            {createBusy ? (
-              <>
-                <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
-                Creando…
-              </>
-            ) : (
-              'Crear borrador'
-            )}
-          </Button>
-        </form>
-      </SimplePanel>
-
-      <SimplePanel>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="text-lg font-semibold text-foreground">Últimos eventos</h3>
-          <Button variant="outline" size="sm" asChild>
-            <Link to="/admin/historial">Ver historial completo</Link>
-          </Button>
-        </div>
-        <ul className="mt-4 divide-y divide-border">
-          {recientes.map((r) => (
-            <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
-              <div>
-                <span className="font-medium text-foreground">{r.nombre}</span>
-                <span className="ml-2 text-muted-foreground">{r.fecha}</span>
-                <Badge
-                  variant="outline"
-                  className={cn('ml-2 font-normal', r.id === focoId && 'border-primary text-primary')}
-                >
-                  {r.estado}
-                  {r.id === focoId ? ' · foco' : ''}
-                </Badge>
-              </div>
-              <Button variant="link" className="h-auto p-0" asChild>
-                <Link to={`/admin/evento/${r.id}`}>Gestionar</Link>
+          ) : (
+            <div className="mt-4 rounded-lg border border-dashed border-border p-4 text-sm">
+              <p className="text-muted-foreground">
+                No hay eventos en curso actualmente.
+              </p>
+              <Button size="sm" variant="outline" className="mt-3" asChild>
+                <Link to="/admin/historial">
+                  Crear evento <ArrowRight className="size-4" />
+                </Link>
               </Button>
-            </li>
-          ))}
-        </ul>
-        {recientes.length === 0 && (
-          <p className="mt-2 text-sm text-muted-foreground">Aún no hay eventos en esta organización.</p>
-        )}
-      </SimplePanel>
+            </div>
+          )}
+        </SimplePanel>
 
-      <SimplePanel>
-        <h3 className="text-sm font-semibold text-foreground">Accesos rápidos</h3>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Button variant="secondary" size="sm" asChild>
-            <Link to="/admin/organizacion">Organización y logos</Link>
+        {/* 2. Resumen de eventos */}
+        <SimplePanel>
+          <div className="flex items-start gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <CalendarCheck2 className="size-5" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-base font-semibold text-foreground">Resumen de eventos</h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">Actividad histórica de la organización.</p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="rounded-lg bg-muted/40 p-3">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Total</p>
+              <p className="mt-1 text-2xl font-semibold text-foreground">{eventos.length}</p>
+            </div>
+            <div className="rounded-lg bg-muted/40 p-3">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Realizados</p>
+              <p className="mt-1 text-2xl font-semibold text-foreground">{eventosRealizados.length}</p>
+            </div>
+          </div>
+
+          {ultimoRealizado ? (
+            <div className="mt-4 border-t border-border pt-3">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Último realizado</p>
+              <p className="mt-1 flex items-center gap-2 text-sm">
+                <CalendarDays className="size-4 text-muted-foreground" />
+                <span className="font-medium text-foreground">{ultimoRealizado.nombre}</span>
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{formatFechaLarga(ultimoRealizado.fecha)}</p>
+            </div>
+          ) : (
+            <p className="mt-4 border-t border-border pt-3 text-sm text-muted-foreground">
+              Aún no hay eventos cerrados.
+            </p>
+          )}
+
+          <Button size="sm" variant="link" className="mt-2 h-auto px-0" asChild>
+            <Link to="/admin/historial">
+              Ver historial <ArrowRight className="size-3.5" />
+            </Link>
           </Button>
-          <Button variant="secondary" size="sm" asChild>
-            <Link to="/admin/coordinacion">Coordinación de sala</Link>
-          </Button>
-        </div>
-      </SimplePanel>
+        </SimplePanel>
+
+        {/* 3. Participantes y jurados */}
+        <SimplePanel>
+          <div className="flex items-start gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400">
+              <Users className="size-5" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-base font-semibold text-foreground">Participantes y jurados</h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">Acumulado en todos los eventos de la org.</p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="rounded-lg bg-muted/40 p-3">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Participantes</p>
+              <p className="mt-1 flex items-baseline gap-1.5">
+                <span className="text-2xl font-semibold text-foreground">{totalParticipantes ?? '—'}</span>
+                <Trophy className="size-4 text-muted-foreground" />
+              </p>
+            </div>
+            <div className="rounded-lg bg-muted/40 p-3">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Jurados</p>
+              <p className="mt-1 flex items-baseline gap-1.5">
+                <span className="text-2xl font-semibold text-foreground">{totalJurados ?? '—'}</span>
+                <Users className="size-4 text-muted-foreground" />
+              </p>
+            </div>
+          </div>
+        </SimplePanel>
+
+        {/* 4. Plan actual */}
+        <SimplePanel>
+          <div className="flex items-start gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+              <Crown className="size-5" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-base font-semibold text-foreground">Plan actual</h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">Gestionado por super admin.</p>
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-3">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Plan</p>
+              <p className="mt-1 text-xl font-semibold text-foreground">
+                {PLAN_LABEL[planNorm] ?? planNorm}
+              </p>
+            </div>
+            <ul className="space-y-1.5 text-sm text-muted-foreground">
+              <li className="flex items-center gap-2">
+                <span className="size-1.5 rounded-full bg-foreground/40" />
+                Jurados por evento:{' '}
+                <span className="font-medium text-foreground">
+                  {maxJur != null ? `máx. ${maxJur}` : 'ilimitado'}
+                </span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="size-1.5 rounded-full bg-foreground/40" />
+                Exportación PDF:{' '}
+                <span className="font-medium text-foreground">{permitePdf ? 'Sí' : 'No'}</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="size-1.5 rounded-full bg-foreground/40" />
+                Exportación Excel:{' '}
+                <span className="font-medium text-foreground">Sí</span>
+              </li>
+            </ul>
+          </div>
+        </SimplePanel>
+      </div>
     </div>
   )
 }

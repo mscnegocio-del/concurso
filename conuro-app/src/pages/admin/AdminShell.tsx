@@ -19,10 +19,10 @@ export function AdminShell() {
 
   const navItems: NavItem[] = [
     { to: '/admin', label: 'Inicio', icon: <LayoutDashboard className="size-4" />, end: true },
-    { to: '/admin/historial', label: 'Historial', icon: <CalendarClock className="size-4" /> },
-    { to: '/admin/usuarios', label: 'Usuarios', icon: <Users className="size-4" /> },
+    { to: '/admin/historial', label: 'Historial de eventos', icon: <CalendarClock className="size-4" /> },
+    { to: '/admin/usuarios', label: 'Usuarios del sistema', icon: <Users className="size-4" /> },
     { to: '/admin/plantillas-criterios', label: 'Plantillas de criterios', icon: <FileText className="size-4" /> },
-    { to: '/admin/organizacion', label: 'Organización', icon: <Building2 className="size-4" /> },
+    { to: '/admin/organizacion', label: 'Mi organización', icon: <Building2 className="size-4" /> },
     { to: '/admin/coordinacion', label: 'Panel en vivo', icon: <MonitorPlay className="size-4" /> },
   ]
 

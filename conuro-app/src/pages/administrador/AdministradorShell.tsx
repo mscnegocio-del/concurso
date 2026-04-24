@@ -19,12 +19,12 @@ export function AdministradorShell() {
 
   const navItems: NavItem[] = [
     { to: '/administrador', label: 'Inicio', icon: <LayoutDashboard className="size-4" />, end: true },
-    { to: '/administrador/historial', label: 'Historial', icon: <CalendarClock className="size-4" /> },
+    { to: '/administrador/historial', label: 'Historial de eventos', icon: <CalendarClock className="size-4" /> },
   ]
 
   return (
     <PanelLayout
-      title="Panel coordinador"
+      title="Coordinador de evento"
       brandingLogoUrl={logoUrl}
       brandingAlt={orgNombre}
       onLogout={() => void signOut()}
