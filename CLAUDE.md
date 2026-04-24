@@ -226,6 +226,30 @@ Configuración ya hecha en Supabase / Auth (ejemplo):
 
 ## Cambios Recientes (Sprint 8 — Abril 2026)
 
+### Dashboards de control — Admin y Coordinador (24/04/2026)
+- **Sidebar Admin:**
+  - ✅ Renombrado "Historial" → **"Historial de eventos"**
+  - ✅ Renombrado "Usuarios" → **"Usuarios del sistema"**
+  - ✅ Renombrado "Organización" → **"Mi organización"**
+
+- **Dashboard `/admin` — 4 tarjetas principales:**
+  - 🎯 **Evento activo:** Solo si está en `abierto`/`calificando` (corrección: antes mostraba último evento cerrado); CTA para crear si no hay activo
+  - 📊 **Resumen de eventos:** Total de eventos, eventos realizados, último realizado con fecha
+  - 👥 **Participantes y jurados:** Conteo acumulado histórico de la organización
+  - 👑 **Plan actual:** Muestra plan, límite de jurados, permiso PDF/Excel
+
+- **Sidebar Coordinador:**
+  - ✅ Título del panel: "Panel coordinador" → **"Coordinador de evento"**
+  - ✅ Renombrado "Historial" → **"Historial de eventos"**
+
+- **Dashboard `/administrador` — 3 tarjetas principales:**
+  - 🎯 **Evento activo con progreso:** Badge de estado, código copiable, barra de avance de calificaciones global (`X/Y`), botón "Ir al panel en vivo"
+  - 📌 **Categorías publicadas:** Contador `publicadas/total` con barra, participantes y jurados visibles
+  - ⚡ **Acciones rápidas:** Botones a Panel en vivo, Historial de eventos, Abrir pantalla pública (abre en tab nuevo)
+
+- **Cambios de componentes:**
+  - ✅ Ampliado `SimplePanel` para aceptar `className` (permite spans de grid dinámico)
+
 ### UI/UX — Panel Administrador (14/04/2026)
 - **Sidebar sticky en desktop:** El menú lateral ahora permanece fijo al hacer scroll (`lg:sticky lg:top-0 lg:h-dvh lg:overflow-y-auto`)
 - **Alertas con colores semánticos:** 
