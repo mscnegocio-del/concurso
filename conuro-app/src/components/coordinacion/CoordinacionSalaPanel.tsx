@@ -195,6 +195,20 @@ export function CoordinacionSalaPanel({
 
   const pasoSeleccionado = Number(filaSeleccionada?.paso_revelacion ?? 0)
 
+  const progresoGlobal = useMemo(() => {
+    let esp = 0
+    let reg = 0
+    let categoriasIncompletas = 0
+    progreso.forEach((p) => {
+      const e = Number(p.calificaciones_esperadas)
+      const r = Number(p.calificaciones_registradas)
+      esp += e
+      reg += r
+      if (e > 0 && r < e) categoriasIncompletas += 1
+    })
+    return { esp, reg, categoriasIncompletas, todasCompletas: esp > 0 && reg >= esp }
+  }, [progreso])
+
   const empatesDetectados = useMemo(() => {
     const grupos: Array<{ lugar: number; filas: RankFila[] }> = []
     const puntajesProcesados = new Set<number>()
@@ -461,20 +475,6 @@ export function CoordinacionSalaPanel({
   const yaPublicadaSeleccion = publicadosSet.has(categoriaSeleccionada)
   const revelacionCompletaSeleccion = yaPublicadaSeleccion && pasoSeleccionado >= maxPaso
   const sinTV = !(evento?.tiene_tv_publica ?? true)
-
-  const progresoGlobal = useMemo(() => {
-    let esp = 0
-    let reg = 0
-    let categoriasIncompletas = 0
-    progreso.forEach((p) => {
-      const e = Number(p.calificaciones_esperadas)
-      const r = Number(p.calificaciones_registradas)
-      esp += e
-      reg += r
-      if (e > 0 && r < e) categoriasIncompletas += 1
-    })
-    return { esp, reg, categoriasIncompletas, todasCompletas: esp > 0 && reg >= esp }
-  }, [progreso])
 
   const botonLabel = (() => {
     if (sinTV) {
