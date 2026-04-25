@@ -414,6 +414,48 @@ Configuración ya hecha en Supabase / Auth (ejemplo):
 - ✅ **Limpieza:** Si evento era "en foco", se borra la preferencia localStorage
 - ✅ **Toast de éxito** tras eliminación
 
+### Panel en Vivo — Reorganización UX/layout (25/04/2026)
+
+#### Estructura Desktop — Sidebar + Panel Principal
+- **Cabecera compacta del evento:** Reemplaza `seccionSala` SimplePanel — una sola línea sticky con nombre, badge de estado con color semántico por estado, código copiable, dot de sync en verde animado, URL + botón "Copiar URL"
+- **Sidebar izquierdo `w-56` sticky:** Lista de categorías como navegación primaria
+  - Barra de progreso por categoría (fino, suave)
+  - Ícono ✓ verde si categoría publicada
+  - Expandible para ver progreso detallado por jurado
+  - Clic selecciona categoría en panel derecho sin necesidad de tabs
+- **Panel principal (flex-1):**
+  - **Ranking con podio visual:** Top 3 con badges numéricos `1° 2° 3°` en dorado/plata/bronce sobre fondos tintados; posiciones 4+ como lista compacta
+  - **Bloque publicar:** Selector de categoría (removido, ahora vive en sidebar), botón principal + estado escalonado/simultaneo
+  - **Empates:** Botones "Mostrar desempate en TV" (si tiene TV) o panel inline con resolver (si no tiene TV)
+  - **Historial acordeón:** Colapsado por defecto, badge contador, no ocupa espacio cuando cerrado
+
+#### Estructura Mobile — Tabs Simplificados
+- **Eliminado tab "Avance"** (redundante con sidebar desktop)
+- **Tabs ahora:** `Publicar | Historial` (antes: `Avance | Publicar | Historial`)
+- **Tab Publicar:**
+  - Chips de categoría (scrollable horizontal, con badge ✓ si publicada)
+  - Ranking + bloque publicar (mismo contenido que desktop)
+- **Tab Historial:** Lista de publicaciones por categoría + fecha/usuario
+
+#### CTA "Iniciar Calificación"
+- Banner azul índigo prominente cuando `evento.estado === 'abierto'`
+- Ícono `Play` + texto descriptivo + botón grande
+- Visible ANTES de las alertas (no enterrado)
+- Responsive: icono + texto en row (sm+) o column (<sm)
+
+#### Cambios de Color/Semántica
+- **Badges de estado:** Color semántico por estado:
+  - `borrador` → gris
+  - `abierto` → azul índigo
+  - `calificando` → azul
+  - `cerrado` → ámbar
+  - `publicado` → verde
+- **Alerta historial publicaciones:** Verde (`variant="success"`)
+- **Alerta evento cerrado/publicado:** Ámbar (`variant="warning"`)
+
+#### Archivo Modificado
+- **`src/components/coordinacion/CoordinacionSalaPanel.tsx`** — rewrite completo de render section (datos + lógica intactos)
+
 ---
 
 ## Notas de desarrollo
