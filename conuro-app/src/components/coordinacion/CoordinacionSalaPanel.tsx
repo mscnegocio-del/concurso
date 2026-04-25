@@ -1,8 +1,18 @@
-import { CheckCircle2, ChevronDown, ChevronRight, Copy, History, Loader2, Play, Radio } from 'lucide-react'
+import { CheckCircle2, ChevronDown, ChevronRight, Copy, History, Loader2, Lock, Play, Radio } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { DesempateInlinePanel } from '@/components/coordinacion/DesempateInlinePanel'
 import { SimplePanel } from '@/components/layouts/PanelLayout'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -116,6 +126,8 @@ export function CoordinacionSalaPanel({
   const [iniciandoCal, setIniciandoCal] = useState(false)
   const [orgPlan, setOrgPlan] = useState<string>('gratuito')
   const [historialAbierto, setHistorialAbierto] = useState(false)
+  const [cerrarOpen, setCerrarOpen] = useState(false)
+  const [cerrarBusy, setCerrarBusy] = useState(false)
 
   const appOrigin = typeof window !== 'undefined' ? window.location.origin : ''
   const urlPublica = evento ? `${appOrigin}/publico/${evento.codigo_acceso}` : ''
@@ -364,6 +376,27 @@ export function CoordinacionSalaPanel({
     }
   }
 
+  async function cerrarCalificacion() {
+    if (!evento) return
+    setCerrarBusy(true)
+    try {
+      const { error: e } = await supabase.from('eventos').update({ estado: 'cerrado' }).eq('id', evento.id)
+      if (e) { setError(e.message); return }
+      await registrarAuditoria({
+        organizacionId: orgId,
+        eventoId: evento.id,
+        usuarioId: perfil.id,
+        accion: 'evento_estado',
+        detalle: { anterior: 'calificando', nuevo: 'cerrado' },
+      })
+      toast.success('Calificación cerrada. Los jurados verán el aviso automáticamente.')
+      setCerrarOpen(false)
+      onReloadEvento()
+    } finally {
+      setCerrarBusy(false)
+    }
+  }
+
   async function iniciarCalificacion() {
     if (!evento) return
     setIniciandoCal(true)
@@ -428,6 +461,20 @@ export function CoordinacionSalaPanel({
   const yaPublicadaSeleccion = publicadosSet.has(categoriaSeleccionada)
   const revelacionCompletaSeleccion = yaPublicadaSeleccion && pasoSeleccionado >= maxPaso
   const sinTV = !(evento?.tiene_tv_publica ?? true)
+
+  const progresoGlobal = useMemo(() => {
+    let esp = 0
+    let reg = 0
+    let categoriasIncompletas = 0
+    progreso.forEach((p) => {
+      const e = Number(p.calificaciones_esperadas)
+      const r = Number(p.calificaciones_registradas)
+      esp += e
+      reg += r
+      if (e > 0 && r < e) categoriasIncompletas += 1
+    })
+    return { esp, reg, categoriasIncompletas, todasCompletas: esp > 0 && reg >= esp }
+  }, [progreso])
 
   const botonLabel = (() => {
     if (sinTV) {
@@ -499,9 +546,72 @@ export function CoordinacionSalaPanel({
           {!(evento.tiene_tv_publica ?? true) && (
             <span className="text-xs text-muted-foreground">Sin pantalla pública activa</span>
           )}
+          {evento.estado === 'calificando' && (
+            <Button
+              type="button"
+              size="sm"
+              variant={progresoGlobal.todasCompletas ? 'default' : 'outline'}
+              className={cn(
+                'gap-1.5 shrink-0',
+                progresoGlobal.todasCompletas
+                  ? 'bg-green-600 hover:bg-green-700 text-white'
+                  : 'border-amber-400 text-amber-700 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950/40',
+              )}
+              onClick={() => setCerrarOpen(true)}
+            >
+              <Lock className="size-3.5" aria-hidden />
+              Cerrar calificación
+            </Button>
+          )}
         </div>
       </div>
     </div>
+  )
+
+  const dialogoCerrar = (
+    <AlertDialog open={cerrarOpen} onOpenChange={setCerrarOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>¿Cerrar la calificación?</AlertDialogTitle>
+          <AlertDialogDescription asChild>
+            <div className="space-y-2">
+              <p>
+                Los jurados verán el aviso en tiempo real y ya no podrán modificar sus notas. Esta acción no se puede
+                deshacer desde este panel.
+              </p>
+              {!progresoGlobal.todasCompletas && (
+                <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                  <p className="font-semibold">⚠️ Hay calificaciones pendientes</p>
+                  <p className="mt-0.5 text-sm">
+                    {progresoGlobal.categoriasIncompletas} categoría
+                    {progresoGlobal.categoriasIncompletas === 1 ? '' : 's'} sin completar (
+                    {progresoGlobal.reg}/{progresoGlobal.esp} calificaciones registradas). Las notas incompletas
+                    quedarán como están.
+                  </p>
+                </div>
+              )}
+            </div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={cerrarBusy}>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            disabled={cerrarBusy}
+            onClick={(e) => {
+              e.preventDefault()
+              void cerrarCalificacion()
+            }}
+            className={
+              progresoGlobal.todasCompletas
+                ? 'bg-green-600 hover:bg-green-700 text-white'
+                : 'bg-amber-600 hover:bg-amber-700 text-white'
+            }
+          >
+            {cerrarBusy ? 'Cerrando…' : 'Sí, cerrar calificación'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 
   // ── CTA Iniciar calificación ──────────────────────────────────────────
@@ -538,7 +648,7 @@ export function CoordinacionSalaPanel({
           <AlertDescription>{avisoAdmin}</AlertDescription>
         </Alert>
       )}
-      {historial.length > 0 && (
+      {historial.length > 0 && !sinTV && (
         <Alert variant="success">
           <AlertTitle>Estado en pantalla pública</AlertTitle>
           <AlertDescription>
@@ -692,13 +802,17 @@ export function CoordinacionSalaPanel({
             <h3 className="text-base font-semibold text-foreground">{filaSeleccionada.categoria_nombre}</h3>
             <p className="mt-0.5 text-xs text-muted-foreground">
               {filaSeleccionada.calificaciones_registradas}/{filaSeleccionada.calificaciones_esperadas} calificaciones
-              {' · '}Modo: <strong>{modoRevelacion === 'escalonado' ? 'revelación escalonada' : 'podio completo'}</strong>
+              {!sinTV && (
+                <>
+                  {' · '}Modo: <strong>{modoRevelacion === 'escalonado' ? 'revelación escalonada' : 'podio completo'}</strong>
+                </>
+              )}
             </p>
           </div>
           {publicadosSet.has(categoriaSeleccionada) && (
             <Badge variant="secondary" className="gap-1 text-xs shrink-0">
               <CheckCircle2 className="size-3" aria-hidden />
-              Publicada
+              {sinTV ? 'Registrada' : 'Publicada'}
             </Badge>
           )}
         </div>
@@ -761,6 +875,7 @@ export function CoordinacionSalaPanel({
         pasoActual={pasoSeleccionado}
         pasoMax={maxPaso}
         label={botonLabel}
+        sinTV={sinTV}
         onClick={() => void publicarCategoria()}
       />
       {yaPublicadaSeleccion && empatesDetectados.length > 0 && (
@@ -807,7 +922,7 @@ export function CoordinacionSalaPanel({
       >
         <span className="flex items-center gap-2">
           <History className="size-4 text-muted-foreground" aria-hidden />
-          Historial de publicaciones
+          Historial de resultados
           {historial.length > 0 && (
             <span className="rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums">{historial.length}</span>
           )}
@@ -862,6 +977,7 @@ export function CoordinacionSalaPanel({
 
   return (
     <div className="space-y-4">
+      {dialogoCerrar}
       {cabeceraEvento}
       {ctaIniciarCalificacion}
       {alertas}
@@ -888,7 +1004,10 @@ export function CoordinacionSalaPanel({
       <div className="lg:hidden">
         <div className="flex border-b border-border">
           {(['publicar', 'historial'] as MobileTab[]).map((tab) => {
-            const labels: Record<MobileTab, string> = { publicar: 'Publicar', historial: 'Historial' }
+            const labels: Record<MobileTab, string> = {
+              publicar: sinTV ? 'Resultados' : 'Publicar',
+              historial: 'Historial',
+            }
             return (
               <button
                 key={tab}
@@ -924,7 +1043,7 @@ export function CoordinacionSalaPanel({
           )}
           {mobileTab === 'historial' && (
             <SimplePanel>
-              <h3 className="text-base font-semibold text-foreground mb-3">Historial de publicaciones</h3>
+              <h3 className="text-base font-semibold text-foreground mb-3">Historial de resultados</h3>
               {historial.length > 0 ? (
                 <ul className="space-y-3 text-sm">
                   {historial.map((h) => {
@@ -960,6 +1079,7 @@ function PublicarBlock({
   pasoActual,
   pasoMax,
   label,
+  sinTV,
   onClick,
 }: {
   disabled: boolean
@@ -969,16 +1089,22 @@ function PublicarBlock({
   pasoActual: number
   pasoMax: number
   label: string
+  sinTV: boolean
   onClick: () => void
 }) {
   return (
     <div className="space-y-2">
-      {yaPublicada && !escalonada && (
+      {yaPublicada && !escalonada && !sinTV && (
         <p className="text-sm text-amber-800 dark:text-amber-200">
           Ya publicada. Puedes volver a guardar para actualizar la hora en pantalla.
         </p>
       )}
-      {escalonada && yaPublicada && (
+      {yaPublicada && sinTV && (
+        <p className="text-sm text-emerald-700 dark:text-emerald-300">
+          Resultados registrados. Puedes guardar de nuevo para actualizar el registro.
+        </p>
+      )}
+      {escalonada && yaPublicada && !sinTV && (
         <p className="text-sm text-amber-800 dark:text-amber-200">
           Revelación: paso {Math.min(pasoActual, pasoMax)}/{pasoMax}
         </p>

@@ -48,6 +48,7 @@ export function AdminHistorialPage() {
   const [deleteBusy, setDeleteBusy] = useState(false)
   const [createBusy, setCreateBusy] = useState(false)
   const [plantillasCriterios, setPlantillasCriterios] = useState<{ id: string; nombre_plantilla: string }[]>([])
+  const [tvSelect, setTvSelect] = useState<'true' | 'false'>('true')
 
   const load = useCallback(async () => {
     if (!orgId) return
@@ -270,26 +271,32 @@ export function AdminHistorialPage() {
                   <option value={3}>3</option>
                 </select>
               </div>
-              <div className="w-full space-y-2 sm:w-44">
-                <Label htmlFor="hist-revelacion">Revelación</Label>
-                <select
-                  id="hist-revelacion"
-                  name="modo_revelacion_podio"
-                  defaultValue="simultaneo"
-                  className="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-                >
-                  <option value="simultaneo">Mostrar podio completo</option>
-                  <option value="escalonado">Escalonada (3→2→1 / 2→1)</option>
-                </select>
-              </div>
+              {tvSelect === 'true' && (
+                <div className="w-full space-y-2 sm:w-44">
+                  <Label htmlFor="hist-revelacion">Revelación</Label>
+                  <select
+                    id="hist-revelacion"
+                    name="modo_revelacion_podio"
+                    defaultValue="simultaneo"
+                    className="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                  >
+                    <option value="simultaneo">Mostrar podio completo</option>
+                    <option value="escalonado">Escalonada (3→2→1 / 2→1)</option>
+                  </select>
+                </div>
+              )}
+              {tvSelect === 'false' && (
+                <input type="hidden" name="modo_revelacion_podio" value="simultaneo" />
+              )}
               <div className="w-full space-y-2 sm:w-40">
                 <Label htmlFor="hist-tv">Pantalla pública (TV)</Label>
                 <select
                   id="hist-tv"
                   name="tiene_tv_publica"
-                  defaultValue="true"
+                  value={tvSelect}
+                  onChange={(e) => setTvSelect(e.target.value as 'true' | 'false')}
                   className="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-                >
+                  >
                   <option value="true">Sí (con TV)</option>
                   <option value="false">No (sin TV)</option>
                 </select>
