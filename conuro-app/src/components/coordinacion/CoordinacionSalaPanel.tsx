@@ -1,4 +1,4 @@
-import { CheckCircle2, ChevronDown, ChevronRight, Copy, Loader2, Radio } from 'lucide-react'
+import { CheckCircle2, ChevronDown, ChevronRight, Copy, History, Loader2, Play, Radio } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { DesempateInlinePanel } from '@/components/coordinacion/DesempateInlinePanel'
@@ -67,7 +67,21 @@ type RankFila = {
 
 const POLL_MS = 6000
 
-type MobileTab = 'avance' | 'publicar' | 'historial'
+type MobileTab = 'publicar' | 'historial'
+
+const ESTADO_BADGE: Record<string, string> = {
+  borrador: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+  abierto: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',
+  calificando: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+  cerrado: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+  publicado: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+}
+
+const MEDAL = [
+  { bg: 'bg-yellow-50 dark:bg-yellow-950/30', border: 'border-yellow-200 dark:border-yellow-800', badge: 'bg-yellow-400 text-white' },
+  { bg: 'bg-slate-50 dark:bg-slate-900/40', border: 'border-slate-200 dark:border-slate-700', badge: 'bg-slate-400 text-white' },
+  { bg: 'bg-amber-50 dark:bg-amber-950/30', border: 'border-amber-200 dark:border-amber-800', badge: 'bg-amber-600 text-white' },
+]
 
 type Props = {
   perfil: { id: string; organizacionId: string; email: string }
@@ -75,7 +89,6 @@ type Props = {
   evento: CoordinacionEvento | null
   eventoReady: boolean
   onReloadEvento: () => void
-  /** Texto bajo el título (p. ej. uso desde admin de sala). */
   avisoAdmin?: string
 }
 
@@ -102,6 +115,7 @@ export function CoordinacionSalaPanel({
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set())
   const [iniciandoCal, setIniciandoCal] = useState(false)
   const [orgPlan, setOrgPlan] = useState<string>('gratuito')
+  const [historialAbierto, setHistorialAbierto] = useState(false)
 
   const appOrigin = typeof window !== 'undefined' ? window.location.origin : ''
   const urlPublica = evento ? `${appOrigin}/publico/${evento.codigo_acceso}` : ''
@@ -172,11 +186,9 @@ export function CoordinacionSalaPanel({
   const empatesDetectados = useMemo(() => {
     const grupos: Array<{ lugar: number; filas: RankFila[] }> = []
     const puntajesProcesados = new Set<number>()
-
     ranking.forEach((r, i) => {
       const puntaje = Number(r.puntaje_final)
       if (puntajesProcesados.has(puntaje)) return
-
       const empatados = ranking.filter((x) => x.puntaje_final === r.puntaje_final)
       if (empatados.length > 1) {
         grupos.push({ lugar: i + 1, filas: empatados })
@@ -198,10 +210,7 @@ export function CoordinacionSalaPanel({
   useEffect(() => {
     const eid = evento?.id
     const cid = categoriaSeleccionada
-    if (!eid || !cid) {
-      setRanking([])
-      return
-    }
+    if (!eid || !cid) { setRanking([]); return }
     let cancelled = false
     ;(async () => {
       setError(null)
@@ -210,15 +219,10 @@ export function CoordinacionSalaPanel({
         p_categoria_id: cid,
       })
       if (cancelled) return
-      if (e) {
-        setError(e.message)
-        return
-      }
+      if (e) { setError(e.message); return }
       setRanking((data ?? []) as RankFila[])
     })()
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [evento?.id, categoriaSeleccionada, progreso])
 
   useEffect(() => {
@@ -226,26 +230,16 @@ export function CoordinacionSalaPanel({
     const id = evento.id
     const ch = supabase
       .channel(`coordinacion-${id}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'resultados_publicados', filter: `evento_id=eq.${id}` },
-        () => {
-          void cargarProgreso()
-          void cargarHistorial()
-        },
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'eventos', filter: `id=eq.${id}` },
-        () => {
-          void onReloadEvento()
-          void cargarProgreso()
-        },
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'resultados_publicados', filter: `evento_id=eq.${id}` }, () => {
+        void cargarProgreso()
+        void cargarHistorial()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'eventos', filter: `id=eq.${id}` }, () => {
+        void onReloadEvento()
+        void cargarProgreso()
+      })
       .subscribe()
-    return () => {
-      void supabase.removeChannel(ch)
-    }
+    return () => { void supabase.removeChannel(ch) }
   }, [evento?.id, cargarProgreso, cargarHistorial, onReloadEvento])
 
   useEffect(() => {
@@ -268,14 +262,11 @@ export function CoordinacionSalaPanel({
 
   useEffect(() => {
     if (!evento?.id) return
-    const loadCriterios = async () => {
-      const { data } = await supabase
-        .from('criterios')
-        .select('id, nombre, es_criterio_desempate')
-        .eq('evento_id', evento.id)
-      setCriterios((data ?? []) as Array<{ id: string; nombre: string; es_criterio_desempate: boolean }>)
-    }
-    void loadCriterios()
+    void supabase
+      .from('criterios')
+      .select('id, nombre, es_criterio_desempate')
+      .eq('evento_id', evento.id)
+      .then(({ data }) => setCriterios((data ?? []) as Array<{ id: string; nombre: string; es_criterio_desempate: boolean }>))
   }, [evento?.id])
 
   useEffect(() => {
@@ -285,9 +276,7 @@ export function CoordinacionSalaPanel({
       .select('plan')
       .eq('id', orgId)
       .maybeSingle()
-      .then(({ data }) => {
-        setOrgPlan((data as { plan?: string } | null)?.plan ?? 'gratuito')
-      })
+      .then(({ data }) => { setOrgPlan((data as { plan?: string } | null)?.plan ?? 'gratuito') })
   }, [orgId])
 
   useEffect(() => {
@@ -297,22 +286,21 @@ export function CoordinacionSalaPanel({
     }
   }, [filaActivaEscalonada, categoriaSeleccionada])
 
-  const publicadosSet = useMemo(
-    () => new Set(historial.map((h) => h.categoria_id)),
-    [historial],
-  )
+  const publicadosSet = useMemo(() => new Set(historial.map((h) => h.categoria_id)), [historial])
+
+  function toggleExpand(catId: string) {
+    setExpandedCats((prev) => {
+      const next = new Set(prev)
+      if (next.has(catId)) next.delete(catId)
+      else next.add(catId)
+      return next
+    })
+  }
 
   async function publicarCategoria() {
     if (!evento || !categoriaSeleccionada) return
-    if (evento.estado === 'borrador') {
-      setError('El evento debe estar activo (no en borrador) para publicar.')
-      return
-    }
-    if (
-      modoRevelacion === 'escalonado' &&
-      filaActivaEscalonada &&
-      filaActivaEscalonada.categoria_id !== categoriaSeleccionada
-    ) {
+    if (evento.estado === 'borrador') { setError('El evento debe estar activo (no en borrador) para publicar.'); return }
+    if (modoRevelacion === 'escalonado' && filaActivaEscalonada && filaActivaEscalonada.categoria_id !== categoriaSeleccionada) {
       setError('Debes terminar la revelación de la categoría en progreso antes de cambiar.')
       return
     }
@@ -323,10 +311,7 @@ export function CoordinacionSalaPanel({
         p_evento_id: evento.id,
         p_categoria_id: categoriaSeleccionada,
       })
-      if (e) {
-        setError(e.message)
-        return
-      }
+      if (e) { setError(e.message); return }
       const row = Array.isArray(data) ? data[0] : null
       const paso = Number(row?.paso_revelacion ?? 0)
       const completado = Boolean(row?.completado)
@@ -335,12 +320,7 @@ export function CoordinacionSalaPanel({
         eventoId: evento.id,
         usuarioId: perfil.id,
         accion: 'resultados_publicados',
-        detalle: {
-          categoria_id: categoriaSeleccionada,
-          modo_revelacion_podio: modoRevelacion,
-          paso_revelacion: paso,
-          completado,
-        },
+        detalle: { categoria_id: categoriaSeleccionada, modo_revelacion_podio: modoRevelacion, paso_revelacion: paso, completado },
       })
       if (modoRevelacion === 'escalonado') {
         toast.success(completado ? 'Categoría completada en pantalla pública.' : `Avance de revelación: paso ${paso}.`)
@@ -359,31 +339,14 @@ export function CoordinacionSalaPanel({
     const yaActivo = desempateActivo?.lugar === lugar && desempateActivo.categoriaId === categoriaSeleccionada
     const criterioDesempate = criterios.find((c) => c.es_criterio_desempate)
     const criterioId = criterioDesempate?.id
-
-    // Obtener puntaje en el criterio de desempate para ambos participantes
-    const puntajeCriterio1 = criterioId && filas[0].promedio_por_criterio
-      ? Number(filas[0].promedio_por_criterio[criterioId])
-      : filas[0].puntaje_final
-    const puntajeCriterio2 = criterioId && filas[1].promedio_por_criterio
-      ? Number(filas[1].promedio_por_criterio[criterioId])
-      : filas[1].puntaje_final
-
-    const payload = yaActivo
-      ? null
-      : {
-          puesto: lugar,
-          criterioDesempate: criterioDesempate?.nombre ?? 'Criterio de desempate',
-          participante1: {
-            nombre: filas[0].nombre_completo,
-            puntajeTotal: filas[0].puntaje_final,
-            puntajeCriterio: puntajeCriterio1,
-          },
-          participante2: {
-            nombre: filas[1].nombre_completo,
-            puntajeTotal: filas[1].puntaje_final,
-            puntajeCriterio: puntajeCriterio2,
-          },
-        }
+    const puntajeCriterio1 = criterioId && filas[0].promedio_por_criterio ? Number(filas[0].promedio_por_criterio[criterioId]) : filas[0].puntaje_final
+    const puntajeCriterio2 = criterioId && filas[1].promedio_por_criterio ? Number(filas[1].promedio_por_criterio[criterioId]) : filas[1].puntaje_final
+    const payload = yaActivo ? null : {
+      puesto: lugar,
+      criterioDesempate: criterioDesempate?.nombre ?? 'Criterio de desempate',
+      participante1: { nombre: filas[0].nombre_completo, puntajeTotal: filas[0].puntaje_final, puntajeCriterio: puntajeCriterio1 },
+      participante2: { nombre: filas[1].nombre_completo, puntajeTotal: filas[1].puntaje_final, puntajeCriterio: puntajeCriterio2 },
+    }
     setDesempateBusy(true)
     try {
       await supabase.rpc('coordinador_toggle_desempate', {
@@ -405,10 +368,7 @@ export function CoordinacionSalaPanel({
     if (!evento) return
     setIniciandoCal(true)
     try {
-      const { error: e } = await supabase
-        .from('eventos')
-        .update({ estado: 'calificando' })
-        .eq('id', evento.id)
+      const { error: e } = await supabase.from('eventos').update({ estado: 'calificando' }).eq('id', evento.id)
       if (e) { setError(e.message); return }
       await registrarAuditoria({
         organizacionId: orgId,
@@ -438,6 +398,7 @@ export function CoordinacionSalaPanel({
     else toast.error('No se pudo copiar al portapapeles')
   }
 
+  // ── Loading / empty states ────────────────────────────────────────────
   if (!eventoReady) {
     return (
       <SimplePanel>
@@ -456,36 +417,27 @@ export function CoordinacionSalaPanel({
       <SimplePanel>
         <h2 className="text-lg font-semibold text-foreground">Sin evento</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          No hay evento en foco ni reciente. El administrador debe crear o seleccionar un evento desde el panel de
-          administración.
+          No hay evento en foco ni reciente. El administrador debe crear o seleccionar un evento desde el panel de administración.
         </p>
       </SimplePanel>
     )
   }
 
   const publicarDeshabilitado = evento.estado === 'borrador'
-  const selectorBloqueado =
-    modoRevelacion === 'escalonado' &&
-    !!filaActivaEscalonada &&
-    filaActivaEscalonada.categoria_id !== categoriaSeleccionada
-
+  const selectorBloqueado = modoRevelacion === 'escalonado' && !!filaActivaEscalonada && filaActivaEscalonada.categoria_id !== categoriaSeleccionada
   const yaPublicadaSeleccion = publicadosSet.has(categoriaSeleccionada)
   const revelacionCompletaSeleccion = yaPublicadaSeleccion && pasoSeleccionado >= maxPaso
-
   const sinTV = !(evento?.tiene_tv_publica ?? true)
+
   const botonLabel = (() => {
     if (sinTV) {
-      if (modoRevelacion === 'simultaneo') {
-        return pubBusy ? 'Registrando…' : 'Registrar resultados de categoría'
-      }
+      if (modoRevelacion === 'simultaneo') return pubBusy ? 'Registrando…' : 'Registrar resultados de categoría'
       if (pubBusy) return 'Registrando…'
       if (!yaPublicadaSeleccion || pasoSeleccionado <= 0) return 'Iniciar registro de resultados'
       if (revelacionCompletaSeleccion) return 'Registro completo'
       return 'Siguiente registro'
     }
-    if (modoRevelacion === 'simultaneo') {
-      return pubBusy ? 'Publicando…' : 'Publicar categoría en pantalla pública'
-    }
+    if (modoRevelacion === 'simultaneo') return pubBusy ? 'Publicando…' : 'Publicar en pantalla pública'
     if (pubBusy) return 'Avanzando…'
     if (!yaPublicadaSeleccion || pasoSeleccionado <= 0) return 'Iniciar revelación en pantalla'
     if (revelacionCompletaSeleccion) return 'Revelación completa'
@@ -498,257 +450,325 @@ export function CoordinacionSalaPanel({
     publicarDeshabilitado ||
     (modoRevelacion === 'escalonado' && revelacionCompletaSeleccion)
 
-  // ── Sección Sala (info del evento) ───────────────────────────────────
-  const seccionSala = (
-    <SimplePanel>
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sala</p>
-      <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-foreground">{evento.nombre}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Estado: <span className="font-medium text-foreground">{evento.estado}</span>
-            {' · '}Código público:{' '}
-            <span className="inline-flex items-center gap-0.5 align-middle">
-              <span className="font-mono">{evento.codigo_acceso}</span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-8 shrink-0"
-                aria-label="Copiar código de acceso"
-                onClick={() => void copiarCodigoAcceso()}
-              >
-                <Copy className="size-4" aria-hidden />
-              </Button>
-            </span>
-          </p>
-        </div>
-        {lastSyncedAt && (
-          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Radio className="size-3 text-green-500 animate-pulse" aria-hidden />
-            {lastSyncedAt.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+  // ── Cabecera compacta del evento ──────────────────────────────────────
+  const cabeceraEvento = (
+    <div className="rounded-xl border border-border bg-card px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <h2 className="font-semibold text-foreground truncate">{evento.nombre}</h2>
+          <span className={cn('shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium capitalize', ESTADO_BADGE[evento.estado] ?? ESTADO_BADGE.borrador)}>
+            {evento.estado}
           </span>
-        )}
+          {(evento.tiene_tv_publica ?? true) && (
+            <span className="hidden sm:inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <span className="font-mono">{evento.codigo_acceso}</span>
+              <button
+                type="button"
+                onClick={() => void copiarCodigoAcceso()}
+                className="rounded p-0.5 hover:bg-muted transition-colors"
+                aria-label="Copiar código de acceso"
+              >
+                <Copy className="size-3" aria-hidden />
+              </button>
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {lastSyncedAt && (
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Radio className="size-3 text-green-500 animate-pulse" aria-hidden />
+              {lastSyncedAt.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </span>
+          )}
+          {(evento.tiene_tv_publica ?? true) && (
+            <>
+              <a
+                href={urlPublica}
+                className="hidden sm:inline text-xs text-primary font-mono underline underline-offset-2 truncate max-w-xs"
+                target="_blank"
+                rel="noreferrer"
+              >
+                {urlPublica}
+              </a>
+              <Button type="button" variant="outline" size="sm" className="gap-1.5 shrink-0" onClick={() => void copiarUrl()}>
+                <Copy className="size-3.5" aria-hidden />
+                Copiar URL
+              </Button>
+            </>
+          )}
+          {!(evento.tiene_tv_publica ?? true) && (
+            <span className="text-xs text-muted-foreground">Sin pantalla pública activa</span>
+          )}
+        </div>
       </div>
-      {(evento.tiene_tv_publica ?? true) ? (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <p className="text-sm text-muted-foreground break-all">
-            <a href={urlPublica} className="font-mono text-primary underline" target="_blank" rel="noreferrer">
-              {urlPublica}
-            </a>
-          </p>
-          <Button type="button" variant="outline" size="sm" className="gap-2 shrink-0" onClick={() => void copiarUrl()}>
-            <Copy className="size-4 shrink-0" aria-hidden />
-            Copiar URL
-          </Button>
+    </div>
+  )
+
+  // ── CTA Iniciar calificación ──────────────────────────────────────────
+  const ctaIniciarCalificacion = evento.estado === 'abierto' && (
+    <div className="rounded-xl border-2 border-indigo-300 bg-indigo-50 dark:border-indigo-700 dark:bg-indigo-950/40 p-5">
+      <div className="flex flex-col sm:flex-row items-center gap-4">
+        <div className="size-10 shrink-0 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center">
+          <Play className="size-5 text-indigo-600 dark:text-indigo-400" aria-hidden />
         </div>
-      ) : (
-        <p className="mt-3 text-sm text-muted-foreground">
-          Este evento no tiene pantalla pública activa. Los resultados publicados quedan registrados en historial y exportaciones.
-        </p>
+        <div className="flex-1 text-center sm:text-left">
+          <p className="font-semibold text-indigo-900 dark:text-indigo-100">Sala abierta — esperando inicio</p>
+          <p className="mt-0.5 text-sm text-indigo-700 dark:text-indigo-300">Los jurados pueden ingresar pero aún no pueden calificar.</p>
+        </div>
+        <Button
+          type="button"
+          disabled={iniciandoCal}
+          onClick={() => void iniciarCalificacion()}
+          size="lg"
+          className="shrink-0 bg-indigo-700 hover:bg-indigo-800 text-white gap-2"
+        >
+          {iniciandoCal ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Play className="size-4" aria-hidden />}
+          Iniciar calificación
+        </Button>
+      </div>
+    </div>
+  )
+
+  // ── Alertas ───────────────────────────────────────────────────────────
+  const alertas = (
+    <div className="space-y-2">
+      {avisoAdmin && (
+        <Alert>
+          <AlertTitle>Coordinación de sala</AlertTitle>
+          <AlertDescription>{avisoAdmin}</AlertDescription>
+        </Alert>
       )}
-      {evento.estado === 'abierto' && (
-        <div className="mt-4 rounded-lg border border-indigo-200 bg-indigo-50 dark:border-indigo-800 dark:bg-indigo-950/30 p-4">
-          <p className="text-sm font-medium text-indigo-800 dark:text-indigo-200">
-            El evento está abierto. Los jurados pueden entrar pero aún no calificar.
-          </p>
-          <Button
-            type="button"
-            disabled={iniciandoCal}
-            onClick={() => void iniciarCalificacion()}
-            className="mt-3 gap-2 bg-indigo-700 hover:bg-indigo-800 text-white"
-            size="sm"
-          >
-            {iniciandoCal ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
-            Iniciar calificación
-          </Button>
-        </div>
+      {historial.length > 0 && (
+        <Alert variant="success">
+          <AlertTitle>Estado en pantalla pública</AlertTitle>
+          <AlertDescription>
+            {historial.length} categoría{historial.length === 1 ? '' : 's'} publicada{historial.length === 1 ? '' : 's'}.
+          </AlertDescription>
+        </Alert>
+      )}
+      {evento.estado === 'borrador' && (
+        <Alert variant="destructive">
+          <AlertTitle>Evento en borrador</AlertTitle>
+          <AlertDescription>El administrador debe activar el evento para poder publicar resultados.</AlertDescription>
+        </Alert>
+      )}
+      {(evento.estado === 'cerrado' || evento.estado === 'publicado') && (
+        <Alert variant="warning">
+          <AlertTitle>Evento {evento.estado}</AlertTitle>
+          <AlertDescription>La calificación terminó. Puedes seguir publicando categorías pendientes.</AlertDescription>
+        </Alert>
+      )}
+      {modoRevelacion === 'escalonado' && filaActivaEscalonada && (
+        <Alert>
+          <AlertTitle>Revelación en progreso</AlertTitle>
+          <AlertDescription>
+            Debes terminar la categoría <strong>{filaActivaEscalonada.categoria_nombre}</strong> antes de cambiar a otra.
+          </AlertDescription>
+        </Alert>
       )}
       {error && (
-        <Alert variant="destructive" className="mt-3">
+        <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-    </SimplePanel>
+    </div>
   )
 
-  // ── Sección Avance ────────────────────────────────────────────────────
-  const seccionAvance = (
-    <SimplePanel>
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Avance</p>
-      <h3 className="mt-2 text-base font-semibold text-foreground">Progreso por categoría</h3>
-      <ul className="mt-4 divide-y divide-border">
+  // ── Sidebar de categorías (desktop izquierdo) ─────────────────────────
+  const sidebarCategorias = (
+    <div>
+      <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Categorías</p>
+      <div className="space-y-0.5">
         {progreso.map((r) => {
           const esp = Number(r.calificaciones_esperadas)
           const reg = Number(r.calificaciones_registradas)
           const pct = esp > 0 ? Math.min(100, Math.round((reg / esp) * 100)) : 0
           const completa = pct === 100
           const publicada = publicadosSet.has(r.categoria_id)
+          const selected = r.categoria_id === categoriaSeleccionada
           const isExpanded = expandedCats.has(r.categoria_id)
           const juradosFila = progresoJurados.filter((j) => j.categoria_id === r.categoria_id)
-
-          function toggleExpand() {
-            setExpandedCats((prev) => {
-              const next = new Set(prev)
-              if (next.has(r.categoria_id)) next.delete(r.categoria_id)
-              else next.add(r.categoria_id)
-              return next
-            })
-          }
+          const bloqueada = modoRevelacion === 'escalonado' && !!filaActivaEscalonada && r.categoria_id !== filaActivaEscalonada.categoria_id
 
           return (
-            <li key={r.categoria_id} className="py-3 text-sm">
+            <div key={r.categoria_id}>
               <button
                 type="button"
-                className="w-full text-left"
-                onClick={toggleExpand}
-                aria-expanded={isExpanded}
+                disabled={bloqueada}
+                onClick={() => setCatPreview(r.categoria_id)}
+                className={cn(
+                  'w-full text-left rounded-lg px-3 py-2.5 transition-colors',
+                  selected ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-foreground',
+                  bloqueada && 'cursor-not-allowed opacity-40',
+                )}
               >
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-2 min-w-0">
-                    {completa ? (
-                      <CheckCircle2 className="size-4 shrink-0 text-green-500" aria-hidden />
-                    ) : (
-                      <span className="size-4 shrink-0" aria-hidden />
-                    )}
-                    <span className="font-medium text-foreground truncate">{r.categoria_nombre}</span>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {publicada && (
-                      <Badge variant="secondary" className="text-xs">publicada</Badge>
-                    )}
-                    <span className="text-muted-foreground tabular-nums">
-                      {reg}/{esp}
-                    </span>
+                <div className="flex items-center justify-between gap-1.5 mb-1.5">
+                  <span className="text-sm font-medium truncate">{r.categoria_nombre}</span>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {publicada && <CheckCircle2 className="size-3.5 text-green-500" aria-hidden />}
                     {juradosFila.length > 0 && (
-                      isExpanded
-                        ? <ChevronDown className="size-4 text-muted-foreground" aria-hidden />
-                        : <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-label={isExpanded ? 'Contraer jurados' : 'Expandir jurados'}
+                        onClick={(e) => { e.stopPropagation(); toggleExpand(r.categoria_id) }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); toggleExpand(r.categoria_id) } }}
+                        className="text-muted-foreground hover:text-foreground cursor-pointer"
+                      >
+                        {isExpanded ? <ChevronDown className="size-3.5" aria-hidden /> : <ChevronRight className="size-3.5" aria-hidden />}
+                      </span>
                     )}
                   </div>
                 </div>
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className={cn('h-full rounded-full transition-all', completa ? 'bg-green-500' : 'bg-primary')}
-                    style={{ width: `${pct}%` }}
-                  />
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={cn('h-full rounded-full transition-all', completa ? 'bg-green-500' : 'bg-primary')}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-muted-foreground tabular-nums shrink-0">{reg}/{esp}</span>
                 </div>
               </button>
 
               {isExpanded && juradosFila.length > 0 && (
-                <ul className="mt-2 space-y-1 pl-6 border-l-2 border-border">
+                <ul className="mt-0.5 mb-1 ml-3 pl-3 border-l-2 border-border space-y-0.5">
                   {juradosFila.map((jf) => {
-                    const jEsp = Number(jf.calificaciones_esperadas)
-                    const jReg = Number(jf.calificaciones_registradas)
-                    const jCompleta = jEsp > 0 && jReg >= jEsp
+                    const jCompleta = Number(jf.calificaciones_registradas) >= Number(jf.calificaciones_esperadas)
                     return (
-                      <li
-                        key={jf.jurado_id}
-                        className="flex items-center justify-between gap-3 text-xs text-muted-foreground"
-                      >
+                      <li key={jf.jurado_id} className="flex items-center justify-between gap-2 py-1 text-xs text-muted-foreground">
                         <span className={cn('truncate', jCompleta && 'text-green-600 dark:text-green-400 font-medium')}>
-                          {jCompleta && <CheckCircle2 className="inline size-3 mr-1" aria-hidden />}
+                          {jCompleta && <CheckCircle2 className="inline size-3 mr-0.5" aria-hidden />}
                           {jf.jurado_nombre}
                         </span>
-                        <span className="shrink-0 tabular-nums">{jReg}/{jEsp}</span>
+                        <span className="tabular-nums shrink-0">{jf.calificaciones_registradas}/{jf.calificaciones_esperadas}</span>
                       </li>
                     )
                   })}
                 </ul>
               )}
-            </li>
+            </div>
           )
         })}
-      </ul>
-      {progreso.length === 0 && <p className="mt-2 text-sm text-muted-foreground">No hay categorías.</p>}
-    </SimplePanel>
+        {progreso.length === 0 && <p className="px-3 text-sm text-muted-foreground">No hay categorías.</p>}
+      </div>
+    </div>
   )
 
-  // ── Sección Publicar ──────────────────────────────────────────────────
-  const seccionPublicar = (
-    <SimplePanel>
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Revisar y publicar</p>
-      <h3 className="mt-2 text-base font-semibold text-foreground">Ranking previo</h3>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Vista previa antes de publicar en pantalla pública. Modo:{' '}
-        <strong>{modoRevelacion === 'escalonado' ? 'Revelación escalonada' : 'Podio completo'}</strong>
-      </p>
+  // ── Chips de categoría (móvil) ────────────────────────────────────────
+  const chipsCategorias = (
+    <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+      {progreso.map((r) => {
+        const selected = r.categoria_id === categoriaSeleccionada
+        const publicada = publicadosSet.has(r.categoria_id)
+        const bloqueada = modoRevelacion === 'escalonado' && !!filaActivaEscalonada && r.categoria_id !== filaActivaEscalonada.categoria_id
+        return (
+          <button
+            key={r.categoria_id}
+            type="button"
+            disabled={bloqueada}
+            onClick={() => setCatPreview(r.categoria_id)}
+            className={cn(
+              'shrink-0 rounded-full border px-3 py-1 text-sm font-medium transition-colors whitespace-nowrap',
+              selected ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-foreground hover:bg-muted',
+              publicada && !selected && 'border-green-500/50 text-green-700 dark:text-green-400',
+              bloqueada && 'cursor-not-allowed opacity-40',
+            )}
+          >
+            {r.categoria_nombre}
+            {publicada && ' ✓'}
+          </button>
+        )
+      })}
+    </div>
+  )
 
-      {/* Selector de categoría: chips scrollables */}
-      <div className="mt-4 flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-        {progreso.map((r) => {
-          const selected = r.categoria_id === categoriaSeleccionada
-          const publicada = publicadosSet.has(r.categoria_id)
-          const bloqueada = modoRevelacion === 'escalonado' && !!filaActivaEscalonada && r.categoria_id !== filaActivaEscalonada.categoria_id
-          return (
-            <button
-              key={r.categoria_id}
-              type="button"
-              disabled={bloqueada}
-              onClick={() => setCatPreview(r.categoria_id)}
-              className={cn(
-                'shrink-0 rounded-full border px-3 py-1 text-sm font-medium transition-colors whitespace-nowrap',
-                selected
-                  ? 'border-primary bg-primary text-primary-foreground'
-                  : 'border-border bg-background text-foreground hover:bg-muted',
-                publicada && !selected && 'border-green-500/50 text-green-700 dark:text-green-400',
-                bloqueada && 'cursor-not-allowed opacity-40',
-              )}
-            >
-              {r.categoria_nombre}
-              {publicada && ' ✓'}
-            </button>
-          )
-        })}
-      </div>
+  // ── Panel ranking (podio) ─────────────────────────────────────────────
+  const panelRanking = (
+    <div>
+      {filaSeleccionada ? (
+        <div className="mb-4 flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <h3 className="text-base font-semibold text-foreground">{filaSeleccionada.categoria_nombre}</h3>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {filaSeleccionada.calificaciones_registradas}/{filaSeleccionada.calificaciones_esperadas} calificaciones
+              {' · '}Modo: <strong>{modoRevelacion === 'escalonado' ? 'revelación escalonada' : 'podio completo'}</strong>
+            </p>
+          </div>
+          {publicadosSet.has(categoriaSeleccionada) && (
+            <Badge variant="secondary" className="gap-1 text-xs shrink-0">
+              <CheckCircle2 className="size-3" aria-hidden />
+              Publicada
+            </Badge>
+          )}
+        </div>
+      ) : (
+        <p className="mb-4 text-sm text-muted-foreground">Selecciona una categoría para ver el ranking.</p>
+      )}
 
+      {ranking.length > 0 ? (
+        <ol className="space-y-2">
+          {ranking.map((x, i) => {
+            const medal = MEDAL[i]
+            if (medal) {
+              return (
+                <li
+                  key={x.participante_id}
+                  className={cn('flex items-center gap-3 rounded-lg border px-4 py-3', medal.bg, medal.border)}
+                >
+                  <span className={cn('size-7 shrink-0 rounded-full flex items-center justify-center text-xs font-bold', medal.badge)}>
+                    {i + 1}°
+                  </span>
+                  <span className="flex-1 min-w-0 font-medium text-foreground text-sm truncate">{x.nombre_completo}</span>
+                  <span className="font-bold text-foreground tabular-nums shrink-0">{x.puntaje_final}</span>
+                </li>
+              )
+            }
+            return (
+              <li key={x.participante_id} className="flex items-center gap-3 px-4 py-2 text-sm border-b border-border/40 last:border-0">
+                <span className="size-6 shrink-0 flex items-center justify-center text-xs text-muted-foreground font-medium">{i + 1}°</span>
+                <span className="flex-1 min-w-0 text-foreground truncate">{x.nombre_completo}</span>
+                <span className="text-foreground tabular-nums shrink-0">{x.puntaje_final}</span>
+              </li>
+            )
+          })}
+        </ol>
+      ) : categoriaSeleccionada ? (
+        <p className="text-sm text-muted-foreground">Sin datos de ranking aún.</p>
+      ) : null}
+    </div>
+  )
+
+  // ── Bloque publicar + empates ─────────────────────────────────────────
+  const bloquePublicar = (
+    <div className="mt-5 border-t border-border pt-5 space-y-4">
       {selectorBloqueado && (
-        <p className="mt-2 text-sm text-amber-700 dark:text-amber-400">
+        <p className="text-sm text-amber-700 dark:text-amber-400">
           Completa la revelación de <strong>{filaActivaEscalonada?.categoria_nombre}</strong> antes de cambiar.
         </p>
       )}
-
       {calificacionesIncompletas && (
-        <Alert variant="destructive" className="mt-3">
+        <Alert variant="destructive">
           <AlertTitle>Calificaciones incompletas</AlertTitle>
-          <AlertDescription>
-            Esta categoría aún no tiene todas las calificaciones. Puedes publicar si el comité lo autoriza.
-          </AlertDescription>
+          <AlertDescription>Esta categoría aún no tiene todas las calificaciones. Puedes publicar si el comité lo autoriza.</AlertDescription>
         </Alert>
       )}
-
-      <ol className="mt-4 list-decimal space-y-1 pl-5 text-sm">
-        {ranking.map((x) => (
-          <li key={x.participante_id}>
-            <span className="text-foreground">{x.nombre_completo}</span>{' '}
-            — <strong>{x.puntaje_final}</strong>
-          </li>
-        ))}
-      </ol>
-      {ranking.length === 0 && categoriaSeleccionada && (
-        <p className="mt-2 text-sm text-muted-foreground">Sin datos de ranking aún.</p>
-      )}
-
-      <div className="mt-6">
-        <PublicarBlock
-          disabled={pubDisabled}
-          busy={pubBusy}
-          yaPublicada={yaPublicadaSeleccion}
-          escalonada={modoRevelacion === 'escalonado'}
-          pasoActual={pasoSeleccionado}
-          pasoMax={maxPaso}
-          label={botonLabel}
-          onClick={() => void publicarCategoria()}
-        />
-      </div>
-
-      {/* Botones para mostrar/ocultar desempates (si hay TV) o panel inline (si no hay TV) */}
+      <PublicarBlock
+        disabled={pubDisabled}
+        busy={pubBusy}
+        yaPublicada={yaPublicadaSeleccion}
+        escalonada={modoRevelacion === 'escalonado'}
+        pasoActual={pasoSeleccionado}
+        pasoMax={maxPaso}
+        label={botonLabel}
+        onClick={() => void publicarCategoria()}
+      />
       {yaPublicadaSeleccion && empatesDetectados.length > 0 && (
-        <div className="mt-4 border-t border-border pt-4">
+        <div className="border-t border-border pt-4">
           {sinTV ? (
             <DesempateInlinePanel
               empatesDetectados={empatesDetectados}
-              criterioDesempate={criterios.find(c => c.es_criterio_desempate) ?? null}
+              criterioDesempate={criterios.find((c) => c.es_criterio_desempate) ?? null}
             />
           ) : (
             <div className="space-y-2">
@@ -773,98 +793,102 @@ export function CoordinacionSalaPanel({
           )}
         </div>
       )}
-    </SimplePanel>
+    </div>
   )
 
-  // ── Sección Historial ─────────────────────────────────────────────────
-  const seccionHistorial = (
-    <SimplePanel>
-      <h3 className="text-base font-semibold text-foreground">Historial de publicaciones</h3>
-      <ul className="mt-3 space-y-3 text-sm">
-        {historial.map((h) => {
-          const nombre =
-            progreso.find((p) => p.categoria_id === h.categoria_id)?.categoria_nombre ?? h.categoria_id
-          return (
-            <li
-              key={`${h.categoria_id}-${h.publicado_at}`}
-              className="flex flex-col gap-1 border-b border-border/60 pb-3 last:border-0"
-            >
-              <div className="flex flex-wrap justify-between gap-2">
-                <span className="font-medium text-foreground">{nombre}</span>
-                <span className="text-muted-foreground">
-                  {new Date(h.publicado_at).toLocaleString('es-PE')}
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Por: {h.nombre_publicador ?? 'Sin registro'}
-              </p>
-            </li>
-          )
-        })}
-      </ul>
-      {historial.length === 0 && (
-        <p className="text-sm text-muted-foreground">Ninguna categoría publicada aún.</p>
+  // ── Historial acordeón ────────────────────────────────────────────────
+  const historialAcordeon = (
+    <div className="rounded-xl border border-border overflow-hidden bg-card">
+      <button
+        type="button"
+        onClick={() => setHistorialAbierto((v) => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-muted/50 transition-colors"
+        aria-expanded={historialAbierto}
+      >
+        <span className="flex items-center gap-2">
+          <History className="size-4 text-muted-foreground" aria-hidden />
+          Historial de publicaciones
+          {historial.length > 0 && (
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums">{historial.length}</span>
+          )}
+        </span>
+        {historialAbierto
+          ? <ChevronDown className="size-4 text-muted-foreground" aria-hidden />
+          : <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
+        }
+      </button>
+      {historialAbierto && (
+        <div className="border-t border-border px-4 py-3">
+          {historial.length > 0 ? (
+            <ul className="space-y-3 text-sm">
+              {historial.map((h) => {
+                const nombre = progreso.find((p) => p.categoria_id === h.categoria_id)?.categoria_nombre ?? h.categoria_id
+                return (
+                  <li key={`${h.categoria_id}-${h.publicado_at}`} className="flex flex-col gap-0.5 border-b border-border/60 pb-3 last:border-0">
+                    <div className="flex flex-wrap justify-between gap-2">
+                      <span className="font-medium text-foreground">{nombre}</span>
+                      <span className="text-muted-foreground text-xs">{new Date(h.publicado_at).toLocaleString('es-PE')}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Por: {h.nombre_publicador ?? 'Sin registro'}</p>
+                  </li>
+                )
+              })}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">Ninguna categoría publicada aún.</p>
+          )}
+        </div>
       )}
-    </SimplePanel>
+    </div>
+  )
+
+  // ── Exportaciones ─────────────────────────────────────────────────────
+  const exportaciones = (evento.estado === 'cerrado' || evento.estado === 'publicado') && evento.organizacion_id && evento.fecha && (
+    <AdminExportaciones
+      evento={{
+        id: evento.id,
+        organizacion_id: evento.organizacion_id,
+        nombre: evento.nombre,
+        descripcion: evento.descripcion ?? null,
+        fecha: evento.fecha,
+        estado: evento.estado,
+        puestos_a_premiar: evento.puestos_a_premiar,
+        codigo_acceso: evento.codigo_acceso,
+      }}
+      planOrganizacion={orgPlan}
+      setError={setError}
+    />
   )
 
   return (
     <div className="space-y-4">
-      {/* ── Alertas ────────────────────────────────────────────────── */}
-      <div className="space-y-3">
-        {avisoAdmin && (
-          <Alert>
-            <AlertTitle>Coordinación de sala</AlertTitle>
-            <AlertDescription>{avisoAdmin}</AlertDescription>
-          </Alert>
-        )}
-        {historial.length > 0 && (
-          <Alert variant="success">
-            <AlertTitle>Estado en pantalla pública</AlertTitle>
-            <AlertDescription>
-              {historial.length} categoría{historial.length === 1 ? '' : 's'} publicada
-              {historial.length === 1 ? '' : 's'}.
-            </AlertDescription>
-          </Alert>
-        )}
-        {evento.estado === 'borrador' && (
-          <Alert variant="destructive">
-            <AlertTitle>Evento en borrador</AlertTitle>
-            <AlertDescription>
-              El administrador debe activar el evento para poder publicar resultados.
-            </AlertDescription>
-          </Alert>
-        )}
-        {(evento.estado === 'cerrado' || evento.estado === 'publicado') && (
-          <Alert variant="warning">
-            <AlertTitle>Evento {evento.estado}</AlertTitle>
-            <AlertDescription>
-              La calificación terminó. Puedes seguir publicando categorías pendientes.
-            </AlertDescription>
-          </Alert>
-        )}
-        {modoRevelacion === 'escalonado' && filaActivaEscalonada && (
-          <Alert>
-            <AlertTitle>Revelación en progreso</AlertTitle>
-            <AlertDescription>
-              Debes terminar la categoría <strong>{filaActivaEscalonada.categoria_nombre}</strong> antes de cambiar a otra.
-            </AlertDescription>
-          </Alert>
-        )}
+      {cabeceraEvento}
+      {ctaIniciarCalificacion}
+      {alertas}
+
+      {/* ── DESKTOP: sidebar + panel principal ───────────────────────── */}
+      <div className="hidden lg:flex gap-6 items-start">
+        {/* Sidebar izquierdo sticky */}
+        <div className="w-56 shrink-0 rounded-xl border border-border bg-card p-4 sticky top-8 max-h-[calc(100dvh-4rem)] overflow-y-auto">
+          {sidebarCategorias}
+        </div>
+
+        {/* Panel principal */}
+        <div className="flex-1 min-w-0 space-y-4">
+          <SimplePanel>
+            {panelRanking}
+            {bloquePublicar}
+          </SimplePanel>
+          {historialAcordeon}
+          {exportaciones}
+        </div>
       </div>
 
-      {/* ── Info sala (siempre visible) ────────────────────────────── */}
-      {seccionSala}
-
-      {/* ── MÓVIL: tabs Avance / Publicar / Historial ─────────────── */}
+      {/* ── MÓVIL: tabs Publicar / Historial ─────────────────────────── */}
       <div className="lg:hidden">
         <div className="flex border-b border-border">
-          {(['avance', 'publicar', 'historial'] as MobileTab[]).map((tab) => {
-            const labels: Record<MobileTab, string> = {
-              avance: 'Avance',
-              publicar: 'Publicar',
-              historial: 'Historial',
-            }
+          {(['publicar', 'historial'] as MobileTab[]).map((tab) => {
+            const labels: Record<MobileTab, string> = { publicar: 'Publicar', historial: 'Historial' }
             return (
               <button
                 key={tab}
@@ -879,7 +903,7 @@ export function CoordinacionSalaPanel({
               >
                 {labels[tab]}
                 {tab === 'historial' && historial.length > 0 && (
-                  <span className="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-xs">
+                  <span className="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-xs tabular-nums">
                     {historial.length}
                   </span>
                 )}
@@ -887,38 +911,43 @@ export function CoordinacionSalaPanel({
             )
           })}
         </div>
-        <div className="mt-4">
-          {mobileTab === 'avance' && seccionAvance}
-          {mobileTab === 'publicar' && seccionPublicar}
-          {mobileTab === 'historial' && seccionHistorial}
+
+        <div className="mt-4 space-y-4">
+          {mobileTab === 'publicar' && (
+            <>
+              {chipsCategorias}
+              <SimplePanel>
+                {panelRanking}
+                {bloquePublicar}
+              </SimplePanel>
+            </>
+          )}
+          {mobileTab === 'historial' && (
+            <SimplePanel>
+              <h3 className="text-base font-semibold text-foreground mb-3">Historial de publicaciones</h3>
+              {historial.length > 0 ? (
+                <ul className="space-y-3 text-sm">
+                  {historial.map((h) => {
+                    const nombre = progreso.find((p) => p.categoria_id === h.categoria_id)?.categoria_nombre ?? h.categoria_id
+                    return (
+                      <li key={`${h.categoria_id}-${h.publicado_at}`} className="flex flex-col gap-0.5 border-b border-border/60 pb-3 last:border-0">
+                        <div className="flex flex-wrap justify-between gap-2">
+                          <span className="font-medium text-foreground">{nombre}</span>
+                          <span className="text-muted-foreground text-xs">{new Date(h.publicado_at).toLocaleString('es-PE')}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Por: {h.nombre_publicador ?? 'Sin registro'}</p>
+                      </li>
+                    )
+                  })}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground">Ninguna categoría publicada aún.</p>
+              )}
+            </SimplePanel>
+          )}
+          {exportaciones}
         </div>
       </div>
-
-      {/* ── DESKTOP: grid 2 cols ────────────────────────────────────── */}
-      <div className="hidden lg:grid lg:grid-cols-2 lg:gap-6">
-        {seccionAvance}
-        {seccionPublicar}
-        <div className="lg:col-span-2">{seccionHistorial}</div>
-      </div>
-
-      {/* ── Exportación (cerrado/publicado) ────────────────────────── */}
-      {(evento.estado === 'cerrado' || evento.estado === 'publicado') &&
-        evento.organizacion_id && evento.fecha && (
-          <AdminExportaciones
-            evento={{
-              id: evento.id,
-              organizacion_id: evento.organizacion_id,
-              nombre: evento.nombre,
-              descripcion: evento.descripcion ?? null,
-              fecha: evento.fecha,
-              estado: evento.estado,
-              puestos_a_premiar: evento.puestos_a_premiar,
-              codigo_acceso: evento.codigo_acceso,
-            }}
-            planOrganizacion={orgPlan}
-            setError={setError}
-          />
-        )}
     </div>
   )
 }

@@ -13,7 +13,8 @@
       "Bash(find /f/Programas/concurso/conuro-app/src/pages/administrador -name \"*.tsx\" -exec basename {} \\\\;)",
       "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
       "Bash(npx tsc *)",
-      "mcp__supabase__list_projects"
+      "mcp__supabase__list_projects",
+      "Bash(git hash-object *)"
     ]
   },
   "enableAllProjectMcpServers": true,
