@@ -456,11 +456,57 @@ Configuración ya hecha en Supabase / Auth (ejemplo):
 #### Archivo Modificado
 - **`src/components/coordinacion/CoordinacionSalaPanel.tsx`** — rewrite completo de render section (datos + lógica intactos)
 
+### Gestión de Pantalla Pública Condicional y Cierre de Calificación (27/04/2026)
+
+#### 1. **Botón "Cerrar calificación"** en Panel en Vivo
+- **Ubicación:** Cabecera del panel (`CoordinacionSalaPanel`)
+- **Visible cuando:** `evento.estado === 'calificando'`
+- **Estilos dinámicos:**
+  - Verde brillante si **todas las categorías completas** (100% calificaciones)
+  - Ámbar si hay **calificaciones pendientes**
+- **AlertDialog con confirmación inteligente:**
+  - Si todo completo: "¿Cerrar la calificación? Los jurados ya no podrán modificar."
+  - Si hay pendientes: Alerta roja destacada + checkbox "Entiendo y deseo cerrar de todos modos"
+  - Tooltip con conteo: "X categorías sin completar (Y/Z calificaciones)"
+- **Comportamiento:**
+  - Transición `calificando` → `cerrado`
+  - Toast: "Calificación cerrada. Los jurados verán el aviso automáticamente."
+  - Jurados reciben alerta en tiempo real ([JuradoCalificarPage.tsx](conuro-app/src/pages/jurado/JuradoCalificarPage.tsx)) vía Realtime
+  - Header se actualiza por Realtime (evento.estado cambia a `cerrado`)
+
+#### 2. **Textos y UI condicionales por `tiene_tv_publica`**
+- **Alert "Estado en pantalla pública"** → ocultado cuando sinTV (la información vive en historial)
+- **Línea "Modo: revelación escalonada/podio completo"** → ocultada cuando sinTV (no aplica)
+- **Texto "Revelación: paso X/Y"** → ocultado cuando sinTV; reemplazado por "Resultados registrados" con color verde
+- **Badge de categoría:**
+  - Con TV: "Publicada"
+  - Sin TV: "Registrada"
+- **Tab móvil:**
+  - Con TV: "Publicar"
+  - Sin TV: "Resultados"
+- **Historial:** Título siempre "Historial de resultados" (neutral, no "publicaciones")
+- **Archivos modificados:**
+  - `src/components/coordinacion/CoordinacionSalaPanel.tsx` (+ imports AlertDialog)
+  - `src/pages/admin/AdminHistorialPage.tsx` — ocultar selector "Modo revelación" al crear evento sin TV; forzar `simultaneo` vía hidden input
+
+#### 3. **Gate de pantalla pública por `tiene_tv_publica`** (Seguridad)
+- **Nueva migración:** `20260425_001_publico_gate_tiene_tv_publica.sql`
+- **Gateadas las 4 RPCs públicas:**
+  - `publico_evento_por_codigo` → devuelve vacío si TV apagada
+  - `publico_categorias_publicadas` → devuelve vacío si TV apagada
+  - `publico_podio_categoria` → devuelve vacío si TV apagada
+  - `publico_progreso_por_codigo` → devuelve vacío si TV apagada
+- **Comportamiento:**
+  - **TV apagada:** `/publico/:codigo` muestra "Evento no encontrado" (ya manejado por frontend)
+  - **TV encendida durante evento (opción A):** Datos reaparecen automáticamente vía Realtime; no requiere recargas
+  - **Retrocompat:** `coalesce(e.tiene_tv_publica, true)` trata eventos antiguos sin valor como "con TV" (default histórico)
+- **Nota:** Las categorías registradas en BD se mantienen (`resultados_publicados`); solo no se exponen vía RPC público cuando TV está apagada
+
 ---
 
 ## Notas de desarrollo
 
 - Mobile-first en panel jurado; pantalla pública pensada para 1080p.
 - Cambios de estado críticos y reabrir calificaciones: ideal **Edge Function** con validación server-side (parcialmente cubierto por RPC definer + RLS).
-- **Realtime ahora en:** coordinador (`CoordinacionSalaPanel`), administrador (implícito), público TV (`PublicoEventoPage`).
+- **Realtime ahora en:** coordinador (`CoordinacionSalaPanel` para `eventos` y `resultados_publicados`), administrador, jurado (detección cierre `calificando`→`cerrado`), público TV (`PublicoEventoPage`).
 - **PDF profesional:** Soporta multi-página con paginación automática; metadatos completos; tabla de resultados con estilos alternados.
