@@ -16,7 +16,7 @@ Sistema web multi-tenant, responsivo y en tiempo real para gestionar concursos i
 | Frontend | React 18 + TypeScript + Vite |
 | Estilos | Tailwind CSS v4 (mobile-first) |
 | Backend / DB | Supabase (PostgreSQL) |
-| Auth | Supabase Auth — correo + OTP 8 dígitos (admin, administrador, super_admin) |
+| Auth | Supabase Auth — correo + OTP 8 dígitos (admin, coordinador, super_admin) |
 | Jurado | Sin cuenta Supabase: sesión por `token_sesion` en `jurados` + `sessionStorage` |
 | Tiempo real | Supabase Realtime (`eventos`, `resultados_publicados`) + polling de progreso vía RPC |
 | Storage | Supabase Storage (logos en `organizaciones`) |
@@ -34,7 +34,7 @@ Sistema web multi-tenant, responsivo y en tiempo real para gestionar concursos i
 |-----|-----------------|----------|
 | Super Admin | Correo + OTP | CRUD de **organizaciones** (nombre, slug, plan, activo). RLS dedicado. Panel `/super`. |
 | Admin | Correo + OTP | Evento actual (último por `created_at`), CRUD categorías/criterios/participantes/jurados, estados, historial, clonar evento, exportaciones. `/admin/evento`, `/admin/historial`. |
-| Administrador | Correo + OTP | Progreso, ranking previo, publicar por categoría, Realtime. `/administrador`. |
+| Coordinador | Correo + OTP | Progreso, ranking previo, publicar por categoría, Realtime. `/administrador`. |
 | Jurado | Código evento (6 caracteres) + nombre | Calificación secuencial; RPC `jurado_*` con token. `/jurado`, `/jurado/panel/...`. |
 | Público | Sin login | `/publico/<codigo_acceso>` — progreso sin notas; podio solo si la categoría está en `resultados_publicados`. |
 
@@ -501,6 +501,37 @@ Configuración ya hecha en Supabase / Auth (ejemplo):
   - **TV encendida durante evento (opción A):** Datos reaparecen automáticamente vía Realtime; no requiere recargas
   - **Retrocompat:** `coalesce(e.tiene_tv_publica, true)` trata eventos antiguos sin valor como "con TV" (default histórico)
 - **Nota:** Las categorías registradas en BD se mantienen (`resultados_publicados`); solo no se exponen vía RPC público cuando TV está apagada
+
+### UX — Historial de Eventos y Renombrado de Rol (28/04/2026)
+
+#### 1. **Formulario "Crear evento nuevo" colapsado por defecto**
+- **Cambio en `AdminHistorialPage.tsx`:**
+  - ✅ Formulario ahora **oculto por defecto** en `/admin/historial`
+  - ✅ Botón `+ Nuevo evento` en la cabecera para mostrar/ocultar el formulario
+  - ✅ Al hacer clic, el botón cambia a "Cancelar" (chevron-up)
+  - ✅ **Ventaja UX:** Pantalla menos amontonada; los usuarios ven el listado de eventos primero
+  - ✅ **Mobile-friendly:** En móvil, el formulario no ocupa espacio por defecto
+
+#### 2. **Eliminación del botón "Inicio" duplicado en sidebars**
+- **Cambio en `PanelLayout.tsx`:**
+  - ✅ Removida div `px-4 py-3` con enlace hardcodeado a `/` (redundante con ítem "Inicio" en `subNav`)
+  - ✅ Ahora solo hay **un "Inicio"** en la navegación lateral (en el menú principal)
+  - ✅ Afectó a: `AdminShell`, `AdministradorShell`, `SuperShell`
+  - ✅ **Ventaja:** Elimina confusión visual; la navegación es más clara
+
+#### 3. **Renombrado de rol: `administrador` → `coordinador`**
+- **Cambio en BD y código (enum `rol_usuario`):**
+  - ✅ **Migración SQL:** `20260428_001_rename_rol_administrador_a_coordinador.sql`
+    - `ALTER TYPE rol_usuario RENAME VALUE 'administrador' TO 'coordinador'`
+    - Las filas existentes en tabla `usuarios` se actualizan automáticamente
+  - ✅ **TypeScript:**
+    - `src/types/auth.ts`: `RolUsuario = 'super_admin' | 'admin' | 'coordinador'`
+    - `src/lib/role-routes.ts`: `case 'coordinador': return '/administrador'`
+    - `src/App.tsx`: `RequireRole allowed={['coordinador']}`
+    - `src/pages/super/SuperUsuariosPage.tsx`: tipo y `<option value="coordinador">`
+    - `src/pages/admin/AdminUsuariosPage.tsx`: `rol: 'coordinador'`
+  - ⚠️ **Nota:** Las rutas `/administrador` y nombres de componentes (`AdministradorShell`, etc.) NO cambian — solo el enum value
+  - ✅ **Ventaja:** Terminología consistente: "Coordinador de evento" en UI y BD
 
 ---
 
