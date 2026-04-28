@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, Copy, Loader2, Plus, Trash2 } from 'lucide-react'
+import { ChevronUp, Copy, Loader2, Plus, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'

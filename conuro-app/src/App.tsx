@@ -84,7 +84,7 @@ export default function App() {
               path="/administrador"
               element={
                 <RequireAuth>
-                  <RequireRole allowed={['administrador']}>
+                  <RequireRole allowed={['coordinador']}>
                     <AdministradorShell />
                   </RequireRole>
                 </RequireAuth>

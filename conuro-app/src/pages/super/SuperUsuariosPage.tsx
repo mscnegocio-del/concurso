@@ -36,7 +36,7 @@ export function SuperUsuariosPage() {
   const [error, setError] = useState<string | null>(null)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteNombre, setInviteNombre] = useState('')
-  const [inviteRol, setInviteRol] = useState<'admin' | 'administrador'>('admin')
+  const [inviteRol, setInviteRol] = useState<'admin' | 'coordinador'>('admin')
   const [inviting, setInviting] = useState(false)
   const [inviteError, setInviteError] = useState<string | null>(null)
 
@@ -238,11 +238,11 @@ export function SuperUsuariosPage() {
                 <select
                   id="inv-rol"
                   value={inviteRol}
-                  onChange={(e) => setInviteRol(e.target.value as 'admin' | 'administrador')}
+                  onChange={(e) => setInviteRol(e.target.value as 'admin' | 'coordinador')}
                   className="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
                 >
                   <option value="admin">Admin</option>
-                  <option value="administrador">Coordinador</option>
+                  <option value="coordinador">Coordinador</option>
                 </select>
               </div>
               <Button type="submit" disabled={inviting} className="w-full sm:w-auto">

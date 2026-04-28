@@ -1,4 +1,4 @@
-export type RolUsuario = 'super_admin' | 'admin' | 'administrador'
+export type RolUsuario = 'super_admin' | 'admin' | 'coordinador'
 
 export type UsuarioPerfil = {
   id: string

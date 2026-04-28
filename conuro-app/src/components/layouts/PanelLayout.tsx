@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
-import { Link, Outlet, useLocation } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import { Menu } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -49,11 +49,6 @@ function SidebarNav({
         ) : null}
         <h1 className="mt-1 text-lg font-semibold leading-tight text-sidebar-foreground">{title}</h1>
         {subNav ? <div className="mt-4 space-y-1">{subNav}</div> : null}
-      </div>
-      <div className="px-4 py-3">
-        <Button variant="ghost" size="sm" className="w-full justify-start text-sidebar-foreground" asChild>
-          <Link to="/">Inicio</Link>
-        </Button>
       </div>
       <div className="mt-auto border-t border-sidebar-border p-4 space-y-3">
         {userInfo && (

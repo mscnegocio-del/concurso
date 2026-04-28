@@ -6,7 +6,7 @@ export function getRoleHome(rol: RolUsuario): string {
       return '/super'
     case 'admin':
       return '/admin'
-    case 'administrador':
+    case 'coordinador':
       return '/administrador'
     default: {
       const _exhaustive: never = rol

@@ -89,7 +89,7 @@ export function AdminUsuariosPage() {
         body: JSON.stringify({
           email: inviteEmail,
           nombre_completo: inviteNombre,
-          rol: 'administrador',
+          rol: 'coordinador',
           organizacion_id: orgId,
         }),
       })
