@@ -1,4 +1,4 @@
-import { Copy, Loader2, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, Copy, Loader2, Plus, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -49,6 +49,7 @@ export function AdminHistorialPage() {
   const [createBusy, setCreateBusy] = useState(false)
   const [plantillasCriterios, setPlantillasCriterios] = useState<{ id: string; nombre_plantilla: string }[]>([])
   const [tvSelect, setTvSelect] = useState<'true' | 'false'>('true')
+  const [mostrarFormCrear, setMostrarFormCrear] = useState(false)
 
   const load = useCallback(async () => {
     if (!orgId) return
@@ -235,12 +236,27 @@ export function AdminHistorialPage() {
               en este navegador.
             </p>
           </div>
-          <Button variant="outline" size="sm" asChild>
-            <Link to="/admin">Inicio</Link>
+          <Button
+            size="sm"
+            onClick={() => setMostrarFormCrear((v) => !v)}
+            className="gap-1.5"
+          >
+            {mostrarFormCrear ? (
+              <>
+                <ChevronUp className="size-4" aria-hidden />
+                Cancelar
+              </>
+            ) : (
+              <>
+                <Plus className="size-4" aria-hidden />
+                Nuevo evento
+              </>
+            )}
           </Button>
         </div>
 
-        <div className="mt-6 rounded-lg border border-border bg-muted/30 p-4">
+        {mostrarFormCrear && (
+        <div className="mt-4 rounded-lg border border-border bg-muted/30 p-4">
           <h3 className="text-sm font-semibold text-foreground">Crear evento nuevo</h3>
           <p className="mt-1 text-xs text-muted-foreground">
             Borrador; puedes cargar criterios desde una{' '}
@@ -332,6 +348,7 @@ export function AdminHistorialPage() {
             )}
           </form>
         </div>
+        )}
 
         {error && (
           <Alert variant="destructive" className="mt-4">
