@@ -627,6 +627,25 @@ Tras el rename del enum `rol_usuario` (`'administrador'` → `'coordinador'`), v
 > El botón de publicar/registrar resultados debe estar bloqueado mientras el evento sea `borrador` **o** `abierto`.  
 > Solo es accionable desde `calificando`, `cerrado` o `publicado`.
 
+### Correcciones — Coordinador: Historial y Panel en Vivo Mobile (04/05/2026)
+
+#### Historial de eventos del coordinador (`AdministradorHistorialPage.tsx`)
+- **Bug:** El historial del coordinador mostraba "Sin eventos anteriores" aunque existieran eventos en la organización.
+- **Causa:** La query usaba `.lt('fecha', today)` — solo cargaba eventos con fecha pasada; si todos eran de hoy o futuros, retornaba vacío.
+- **Fix:** Removido el filtro de fecha. Ahora carga **todos los eventos de la organización** ordenados por fecha descendente.
+- **UX mejorada para eventos con resultados:**
+  - Eventos `cerrado` o `publicado` muestran fondo verde suave + ícono 🏆 + botón **"📊 Ver resultados"** (variant `default`)
+  - Eventos en otros estados muestran botón "Ver coordinación" (variant `outline`)
+- **Destino del botón:** `/administrador/evento/:id` → `AdministradorEventoPage` → `CoordinacionSalaPanel` (muestra ranking y datos del evento seleccionado)
+
+#### Panel en Vivo — Sidebar de categorías visible en mobile (`CoordinacionSalaPanel.tsx`)
+- **Bug:** En mobile, el sidebar de categorías (con barra de progreso por categoría, ícono ✓ publicada y detalle por jurado) no era visible. Solo se veía la columna de ranking.
+- **Causa:** El sidebar usa `hidden lg:flex` — invisible en mobile. El layout mobile usaba `chipsCategorias` (botones pill simples) sin progreso.
+- **Fix:** En el tab mobile "Publicar"/"Resultados", se reemplazó `chipsCategorias` por `sidebarCategorias` envuelto en `SimplePanel`. Ahora mobile muestra:
+  1. Tarjeta de categorías (igual que desktop): nombre, barra de progreso `reg/esp`, ícono ✓, expandible por jurado
+  2. Tarjeta de ranking con podio y botón publicar
+- **Eliminado:** `chipsCategorias` (variable eliminada al quedar sin uso — evita error TS6133).
+
 ---
 
 ## Notas de desarrollo

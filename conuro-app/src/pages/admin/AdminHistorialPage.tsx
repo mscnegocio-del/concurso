@@ -410,6 +410,19 @@ export function AdminHistorialPage() {
                       >
                         Gestionar
                       </Button>
+                      {(r.estado === 'cerrado' || r.estado === 'publicado') && (
+                        <Button
+                          type="button"
+                          variant="link"
+                          className="h-auto p-0 text-emerald-700 hover:text-emerald-800 dark:text-emerald-400"
+                          onClick={() => {
+                            if (orgId) setStoredEventoFoco(orgId, r.id)
+                            navigate('/admin/coordinacion')
+                          }}
+                        >
+                          Ver resultados
+                        </Button>
+                      )}
                       <Button
                         type="button"
                         variant="link"
@@ -488,6 +501,20 @@ export function AdminHistorialPage() {
                 <Button type="button" size="sm" onClick={() => irAGestionar(r.id)}>
                   Gestionar
                 </Button>
+                {(r.estado === 'cerrado' || r.estado === 'publicado') && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400"
+                    onClick={() => {
+                      if (orgId) setStoredEventoFoco(orgId, r.id)
+                      navigate('/admin/coordinacion')
+                    }}
+                  >
+                    Ver resultados
+                  </Button>
+                )}
                 <Button
                   type="button"
                   size="sm"

@@ -51,7 +51,6 @@ export function JuradoCalificarPage() {
   const [scores, setScores] = useState<Record<string, number>>({})
   const [estadoEvento, setEstadoEvento] = useState<string | null>(null)
   const [eventoId, setEventoId] = useState<string | null>(null)
-  const [alertaCierre, setAlertaCierre] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -119,10 +118,9 @@ export function JuradoCalificarPage() {
     })
   }, [loadAll])
 
-  // Realtime + polling para detectar cambios de estado del evento en tiempo real
+  // Polling para refrescar el estado del evento (Realtime global en JuradoShell)
   useEffect(() => {
     if (!eventoId) return
-
     const token = session?.tokenSesion
     const t = window.setInterval(async () => {
       if (!token) return
@@ -130,24 +128,7 @@ export function JuradoCalificarPage() {
       const r = data?.[0] as { evento_estado: string } | undefined
       if (r) setEstadoEvento(r.evento_estado)
     }, 10_000)
-
-    const ch = supabase
-      .channel(`jurado-calificar-evento-${eventoId}`)
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'eventos', filter: `id=eq.${eventoId}` },
-        (payload) => {
-          const nuevo = (payload.new as { estado: string }).estado
-          setEstadoEvento(nuevo)
-          if (nuevo === 'cerrado') setAlertaCierre(true)
-        },
-      )
-      .subscribe()
-
-    return () => {
-      window.clearInterval(t)
-      void supabase.removeChannel(ch)
-    }
+    return () => window.clearInterval(t)
   }, [eventoId, session?.tokenSesion])
 
   const puedeEditar = estadoEvento === 'calificando'
@@ -218,7 +199,6 @@ export function JuradoCalificarPage() {
   const pNombre = parts.find((p) => p.id === participanteId)?.nombre_completo ?? ''
 
   return (
-    <>
     <Card>
       <CardHeader>
         <Button variant="link" className="h-auto w-fit p-0" asChild>
@@ -414,23 +394,5 @@ export function JuradoCalificarPage() {
         )}
       </CardContent>
     </Card>
-
-    {/* Alerta en tiempo real cuando el evento es cerrado por el admin/coordinador */}
-    <AlertDialog open={alertaCierre}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Calificación cerrada</AlertDialogTitle>
-          <AlertDialogDescription>
-            El administrador ha cerrado la calificación. Tus notas quedaron guardadas y ya no pueden modificarse.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogAction onClick={() => setAlertaCierre(false)}>
-            Entendido
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-    </>
   )
 }
