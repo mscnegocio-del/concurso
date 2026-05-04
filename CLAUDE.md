@@ -77,6 +77,9 @@ Lógica en `conuro-app/src/lib/planes.ts`. El plan lo cambia el Super Admin en `
 ### criterios, categorias, participantes, jurados, calificaciones, resultados_publicados, audit_log
 Como en el diseño original, con estas extensiones:
 
+### participantes (Sprint 9+)
+`... , institucion text nullable` — institución educativa del participante, mostrada en podios del coordinador y TV pública.
+
 ### jurados (Sprint 3+)
 `... , token_sesion uuid UNIQUE` — rota en cada login vía `registrar_o_buscar_jurado`; las operaciones del panel jurado usan RPC con el token.
 
@@ -532,6 +535,54 @@ Configuración ya hecha en Supabase / Auth (ejemplo):
     - `src/pages/admin/AdminUsuariosPage.tsx`: `rol: 'coordinador'`
   - ⚠️ **Nota:** Las rutas `/administrador` y nombres de componentes (`AdministradorShell`, etc.) NO cambian — solo el enum value
   - ✅ **Ventaja:** Terminología consistente: "Coordinador de evento" en UI y BD
+
+### Institución Educativa de Participantes (04/05/2026) ✨ NUEVO
+
+#### 1. **Campo institución en tabla participantes**
+- **Nueva columna:** `institucion TEXT nullable` en tabla `participantes`
+- **Migración:** `20260504_001_add_institucion_to_participantes`
+- **Propósito:** Registrar la institución educativa a la que pertenece cada participante para mostrar en podios
+
+#### 2. **Formulario de Participantes actualizado**
+- **Cambio en `AdminEventoPage.tsx` (SeccionParticipantes):**
+  - ✅ Nuevo campo de entrada "Institución (opcional)" junto a "Nombre completo"
+  - ✅ Campo opcional; si está vacío, no se guarda en BD (NULL)
+  - ✅ Se muestra en la lista de participantes como texto pequeño entre paréntesis
+  - ✅ Tipo `Participante` actualizado: `institucion?: string | null`
+  - ✅ Actualización: Se envía junto con el insert al guardar nuevo participante
+
+#### 3. **Podio del Coordinador**
+- **Cambio en `CoordinacionSalaPanel.tsx`:**
+  - ✅ Tipo `RankFila` ahora incluye `institucion?: string | null`
+  - ✅ Si el participante tiene institución, se muestra bajo el nombre en texto pequeño (`text-xs`)
+  - ✅ Aparece en Top 3 (con badges de medallas) y posiciones 4+ (en lista compacta)
+  - ✅ Color `text-muted-foreground` para no competir con nombre/puntaje
+  - ✅ Espaciado vertical ajustado: `gap-1` en contenedor de medalla, `ml-10` en institucion
+
+#### 4. **Pantalla Pública (TV)**
+- **Cambio en `PublicoEventoPage.tsx` (PodioSlot):**
+  - ✅ Tipo `PodioFila` actualizado: `institucion?: string | null`
+  - ✅ Función `normalizarFilasPodio` extrae institucion de datos RPC
+  - ✅ Si existe, se renderiza bajo el nombre en tamaño responsivo
+  - ✅ Tamaño: `text-[clamp(0.5rem,1.2vmin,0.65rem)]` — escala con pantalla
+  - ✅ Color: `text-[var(--publico-text-muted)]` — coherente con tema
+
+#### 5. **RPCs actualizadas**
+- **Migración:** `20260504_002_update_rpc_include_institucion_v2`
+  - ✅ **`coordinador_ranking_categoria`:** Ahora retorna `institucion` en result set
+  - ✅ **`publico_podio_categoria`:** Ahora retorna `institucion` en result set
+  - ✅ Ambas RPC: DROP + CREATE para cambiar tipo de retorno (OUT parameters)
+  - ✅ RPC público mantiene gate: no retorna datos si `tiene_tv_publica = false`
+
+#### 6. **Flujo de datos**
+```
+Admin ingresa institución → Supabase `participantes.institucion`
+  ↓
+RPC devuelve institucion → Frontend recibe en RankFila / PodioFila
+  ↓
+Coordinador Panel muestra: "Nombre (Institución)"
+TV Pública muestra: "Nombre" + subtítulo pequeño "Institución"
+```
 
 ---
 
