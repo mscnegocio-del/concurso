@@ -21,7 +21,7 @@ AS $$
 BEGIN
   RETURN QUERY
   WITH evento_data AS (
-    SELECT e.id, e.nombre, e.estado, o.id AS org_id
+    SELECT e.id, e.nombre, e.estado::text AS estado, o.id AS org_id
     FROM eventos e
     JOIN organizaciones o ON e.organizacion_id = o.id
     WHERE e.id = p_evento_id
@@ -76,7 +76,7 @@ BEGIN
     s.nombre,
     s.estado,
     s.total_categorias,
-    COALESCE(cp.total, 0),
+    COALESCE(cp.total, 0::bigint),
     s.total_jurados,
     s.total_participantes,
     s.calificaciones_totales,
