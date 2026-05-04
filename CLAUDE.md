@@ -586,6 +586,34 @@ TV Pública muestra: "Nombre" + subtítulo pequeño "Institución"
 
 ---
 
+### Correcciones críticas de RPCs — Panel en Vivo (04/05/2026)
+
+Tras el rename del enum `rol_usuario` (`'administrador'` → `'coordinador'`), varias funciones SQL quedaron rotas porque el rename fue aplicado directamente en Supabase sin pasar por migraciones. Se aplicaron 4 migraciones correctivas (`20260504_003` a `20260504_006`):
+
+#### Problemas resueltos
+
+| RPC | Error | Causa | Fix |
+|-----|-------|-------|-----|
+| `coordinador_ranking_categoria` | `invalid input value for enum rol_usuario: "administrador"` | Comparaba `usuarios.rol = 'administrador'` después del rename | Reemplazado por `rol IN ('admin', 'coordinador', 'super_admin')` |
+| `_usuario_puede_evento` | Mismo enum error | Misma causa | Mismo fix |
+| `coordinador_progreso_evento` | `aggregate function calls cannot be nested` | Tenía `COUNT(DISTINCT ...)` dentro de otro `COUNT()` | Separado en CTEs (`stats`, `cat_stats`, `completas`) |
+| `coordinador_progreso_evento` | `structure of query does not match function result type` | `e.estado` es enum `estado_evento`, no `text` | Agregado `e.estado::text` cast |
+| `coordinador_progreso_evento` | `NaN/NaN` en sidebar | Migraciones _003/_004 la cambiaron erróneamente a datos evento-nivel en lugar de por-categoría | Restaurada a firma original: retorna 1 fila por categoría con `publicado` y `paso_revelacion` |
+| `coordinador_ranking_categoria` | `function _puntajes_finales_categoria(uuid, uuid, uuid) does not exist` | Migración `20260504_002` la llamaba con 3 args; la función solo acepta 1 (`p_categoria_id`) | Reescrita usando `_puntajes_finales_categoria(p_categoria_id)` + JOIN a `participantes` para `institucion` |
+
+#### Estado correcto de las funciones clave
+
+- **`_puntajes_finales_categoria(p_categoria_id uuid)`** — 1 arg. Retorna `(participante_id, codigo, nombre_completo, puntaje_final)`. Uso interno.
+- **`coordinador_progreso_evento(p_evento_id uuid)`** — Retorna 1 fila **por categoría** con `(categoria_id, categoria_nombre, orden, total_participantes, num_jurados, num_criterios, calificaciones_registradas, calificaciones_esperadas, publicado, paso_revelacion)`.
+- **`coordinador_ranking_categoria(p_evento_id, p_categoria_id)`** — Retorna ranking con `(participante_id, codigo, nombre_completo, institucion, puntaje_final, promedio_por_criterio)`.
+
+#### Regla para migraciones futuras que toquen estas funciones
+> Siempre usar `rol IN ('admin', 'coordinador', 'super_admin')` — nunca `'administrador'`.  
+> `_puntajes_finales_categoria` acepta solo `p_categoria_id` (1 uuid).  
+> `coordinador_progreso_evento` debe retornar **por categoría**, no por evento.
+
+---
+
 ## Notas de desarrollo
 
 - Mobile-first en panel jurado; pantalla pública pensada para 1080p.
