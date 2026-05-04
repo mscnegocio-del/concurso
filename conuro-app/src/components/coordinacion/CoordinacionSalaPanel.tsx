@@ -211,6 +211,7 @@ export function CoordinacionSalaPanel({
   }, [progreso])
 
   const empatesDetectados = useMemo(() => {
+    if (!filaSeleccionada || Number(filaSeleccionada.calificaciones_registradas) === 0) return []
     const grupos: Array<{ lugar: number; filas: RankFila[] }> = []
     const puntajesProcesados = new Set<number>()
     ranking.forEach((r, i) => {
@@ -223,7 +224,7 @@ export function CoordinacionSalaPanel({
       }
     })
     return grupos
-  }, [ranking])
+  }, [ranking, filaSeleccionada])
 
   useEffect(() => {
     if (!evento?.id) return
@@ -471,7 +472,7 @@ export function CoordinacionSalaPanel({
     )
   }
 
-  const publicarDeshabilitado = evento.estado === 'borrador'
+  const publicarDeshabilitado = evento.estado === 'borrador' || evento.estado === 'abierto'
   const selectorBloqueado = modoRevelacion === 'escalonado' && !!filaActivaEscalonada && filaActivaEscalonada.categoria_id !== categoriaSeleccionada
   const yaPublicadaSeleccion = publicadosSet.has(categoriaSeleccionada)
   const revelacionCompletaSeleccion = yaPublicadaSeleccion && pasoSeleccionado >= maxPaso
@@ -821,7 +822,9 @@ export function CoordinacionSalaPanel({
         <p className="mb-4 text-sm text-muted-foreground">Selecciona una categoría para ver el ranking.</p>
       )}
 
-      {ranking.length > 0 ? (
+      {ranking.length > 0 && Number(filaSeleccionada?.calificaciones_registradas ?? 0) === 0 ? (
+        <p className="text-sm text-muted-foreground">Sin calificaciones aún — el ranking aparecerá cuando los jurados comiencen a calificar.</p>
+      ) : ranking.length > 0 ? (
         <ol className="space-y-2">
           {ranking.map((x, i) => {
             const medal = MEDAL[i]
@@ -872,7 +875,13 @@ export function CoordinacionSalaPanel({
           Completa la revelación de <strong>{filaActivaEscalonada?.categoria_nombre}</strong> antes de cambiar.
         </p>
       )}
-      {calificacionesIncompletas && (
+      {evento.estado === 'abierto' && (
+        <Alert>
+          <AlertTitle>Calificación no iniciada</AlertTitle>
+          <AlertDescription>Primero inicia la calificación para poder {sinTV ? 'registrar resultados' : 'publicar en pantalla pública'}.</AlertDescription>
+        </Alert>
+      )}
+      {evento.estado !== 'abierto' && calificacionesIncompletas && (
         <Alert variant="destructive">
           <AlertTitle>Calificaciones incompletas</AlertTitle>
           <AlertDescription>Esta categoría aún no tiene todas las calificaciones. Puedes publicar si el comité lo autoriza.</AlertDescription>
