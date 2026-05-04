@@ -47,8 +47,6 @@ export function AdministradorHistorialPage() {
   const [eventos, setEventos] = useState<EventoRow[]>([])
   const [loading, setLoading] = useState(true)
 
-  const today = new Date().toISOString().split('T')[0]
-
   const cargar = useCallback(async () => {
     if (!orgId) return
     setLoading(true)

@@ -767,33 +767,6 @@ export function CoordinacionSalaPanel({
     </div>
   )
 
-  // ── Chips de categoría (móvil) ────────────────────────────────────────
-  const chipsCategorias = (
-    <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-      {progreso.map((r) => {
-        const selected = r.categoria_id === categoriaSeleccionada
-        const publicada = publicadosSet.has(r.categoria_id)
-        const bloqueada = modoRevelacion === 'escalonado' && !!filaActivaEscalonada && r.categoria_id !== filaActivaEscalonada.categoria_id
-        return (
-          <button
-            key={r.categoria_id}
-            type="button"
-            disabled={bloqueada}
-            onClick={() => setCatPreview(r.categoria_id)}
-            className={cn(
-              'shrink-0 rounded-full border px-3 py-1 text-sm font-medium transition-colors whitespace-nowrap',
-              selected ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-foreground hover:bg-muted',
-              publicada && !selected && 'border-green-500/50 text-green-700 dark:text-green-400',
-              bloqueada && 'cursor-not-allowed opacity-40',
-            )}
-          >
-            {r.categoria_nombre}
-            {publicada && ' ✓'}
-          </button>
-        )
-      })}
-    </div>
-  )
 
   // ── Panel ranking (podio) ─────────────────────────────────────────────
   const panelRanking = (
