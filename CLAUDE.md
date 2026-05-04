@@ -646,11 +646,31 @@ Tras el rename del enum `rol_usuario` (`'administrador'` → `'coordinador'`), v
   2. Tarjeta de ranking con podio y botón publicar
 - **Eliminado:** `chipsCategorias` (variable eliminada al quedar sin uso — evita error TS6133).
 
+### Correcciones — Alerta cierre jurado y Ver resultados en Admin (04/05/2026)
+
+#### 1. **Alerta "Calificación cerrada" en tiempo real para jurado (todas las páginas)**
+- **Bug:** El aviso de cierre solo existía en `JuradoCalificarPage` y además únicamente se disparaba por Realtime (no por polling). Si el jurado estaba en el dashboard o en la lista de participantes, nunca veía la alerta.
+- **Causa raíz:** El alert dialog vivía en una sola página; el polling de 10s actualizaba `estadoEvento` pero no llamaba `setAlertaCierre(true)`.
+- **Fix:** Lógica movida a `JuradoShell.tsx` (envuelve todas las páginas del jurado):
+  - Polling cada **8 s** detecta transición `calificando → cerrado` y muestra el dialog
+  - Realtime sobre `eventos` como segunda vía (cuando RLS de anon lo permite)
+  - `prevEstadoRef` evita mostrar el dialog más de una vez por sesión
+  - `JuradoCalificarPage` queda simplificado: solo polling para `estadoEvento` (deshabilitar formulario); sin dialog propio
+- **Archivos:** `src/pages/jurado/JuradoShell.tsx`, `src/pages/jurado/JuradoCalificarPage.tsx`
+
+#### 2. **Botón "Ver resultados" en Historial de Admin**
+- **Bug:** En `/admin/historial`, los eventos en estado `cerrado` o `publicado` solo tenían "Gestionar", "Clonar" y "Eliminar". El admin no podía ver el ranking como el coordinador sin cambiar manualmente el evento en foco.
+- **Fix:** Nuevo botón **"Ver resultados"** visible solo para `cerrado` y `publicado`:
+  - Llama `setStoredEventoFoco(orgId, id)` para poner ese evento en foco
+  - Navega a `/admin/coordinacion` → `AdminCoordinacionPage` → `CoordinacionSalaPanel` (ranking completo)
+  - Aparece en tabla desktop y en tarjetas mobile
+- **Archivo:** `src/pages/admin/AdminHistorialPage.tsx`
+
 ---
 
 ## Notas de desarrollo
 
 - Mobile-first en panel jurado; pantalla pública pensada para 1080p.
 - Cambios de estado críticos y reabrir calificaciones: ideal **Edge Function** con validación server-side (parcialmente cubierto por RPC definer + RLS).
-- **Realtime ahora en:** coordinador (`CoordinacionSalaPanel` para `eventos` y `resultados_publicados`), administrador, jurado (detección cierre `calificando`→`cerrado`), público TV (`PublicoEventoPage`).
+- **Realtime ahora en:** coordinador (`CoordinacionSalaPanel` para `eventos` y `resultados_publicados`), administrador, jurado (`JuradoShell` — detección cierre `calificando`→`cerrado` en todas las páginas jurado), público TV (`PublicoEventoPage`).
 - **PDF profesional:** Soporta multi-página con paginación automática; metadatos completos; tabla de resultados con estilos alternados.
