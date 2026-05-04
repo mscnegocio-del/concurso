@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { History } from 'lucide-react'
+import { History, Trophy } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -56,11 +56,10 @@ export function AdministradorHistorialPage() {
       .from('eventos')
       .select('id, nombre, fecha, estado, codigo_acceso')
       .eq('organizacion_id', orgId)
-      .lt('fecha', today)
       .order('fecha', { ascending: false })
     setEventos((data as EventoRow[]) ?? [])
     setLoading(false)
-  }, [orgId, today])
+  }, [orgId])
 
   useEffect(() => {
     void cargar()
@@ -90,28 +89,34 @@ export function AdministradorHistorialPage() {
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
-          {eventos.map((e) => (
-            <Card key={e.id}>
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="text-base leading-snug">{e.nombre}</CardTitle>
-                  <Badge variant={ESTADO_VARIANT[e.estado] ?? 'secondary'} className="shrink-0">
-                    {ESTADO_LABEL[e.estado] ?? e.estado}
-                  </Badge>
-                </div>
-                <p className="text-sm text-muted-foreground">{formatFecha(e.fecha)}</p>
-              </CardHeader>
-              <CardContent className="pt-0 flex justify-end">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate(`/administrador/evento/${e.id}`)}
-                >
-                  Ver coordinación →
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+          {eventos.map((e) => {
+            const hasResults = e.estado === 'cerrado' || e.estado === 'publicado'
+            return (
+              <Card key={e.id} className={hasResults ? 'border-green-200 bg-green-50 dark:border-green-900/30 dark:bg-green-950/20' : ''}>
+                <CardHeader className="pb-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <CardTitle className="text-base leading-snug">{e.nombre}</CardTitle>
+                    <div className="flex items-center gap-2">
+                      {hasResults && <Trophy className="h-4 w-4 text-green-600 shrink-0" />}
+                      <Badge variant={ESTADO_VARIANT[e.estado] ?? 'secondary'} className="shrink-0">
+                        {ESTADO_LABEL[e.estado] ?? e.estado}
+                      </Badge>
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{formatFecha(e.fecha)}</p>
+                </CardHeader>
+                <CardContent className="pt-0 flex justify-end">
+                  <Button
+                    variant={hasResults ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => navigate(`/administrador/evento/${e.id}`)}
+                  >
+                    {hasResults ? '📊 Ver resultados' : 'Ver coordinación'} →
+                  </Button>
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
       )}
     </div>

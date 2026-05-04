@@ -1054,7 +1054,9 @@ export function CoordinacionSalaPanel({
         <div className="mt-4 space-y-4">
           {mobileTab === 'publicar' && (
             <>
-              {chipsCategorias}
+              <SimplePanel>
+                {sidebarCategorias}
+              </SimplePanel>
               <SimplePanel>
                 {panelRanking}
                 {bloquePublicar}
