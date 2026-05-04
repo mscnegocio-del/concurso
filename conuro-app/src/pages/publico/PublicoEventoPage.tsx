@@ -57,6 +57,7 @@ type PodioFila = {
   participante_id: string
   codigo: string
   nombre_completo: string
+  institucion?: string | null
   puntaje_final: number
 }
 
@@ -77,6 +78,7 @@ function normalizarFilasPodio(raw: unknown): PodioFila[] {
         participante_id: String(x.participante_id ?? ''),
         codigo: String(x.codigo ?? ''),
         nombre_completo: String(x.nombre_completo ?? ''),
+        institucion: x.institucion ? String(x.institucion) : null,
         puntaje_final: Number(x.puntaje_final),
       }
     })
@@ -748,6 +750,11 @@ function PodioSlot({
         {fila ? (
           <>
             <PodioNombreProyector nombre={fila.nombre_completo} destacado={!!alto} />
+            {fila.institucion && (
+              <p className="mt-[clamp(0.3rem,0.8dvh,0.5rem)] text-[clamp(0.5rem,1.2vmin,0.65rem)] text-[var(--publico-text-muted)]">
+                {fila.institucion}
+              </p>
+            )}
             <p className="mt-[clamp(0.5rem,1.5dvh,1rem)] text-[clamp(1.25rem,4vmin,2.5rem)] font-bold text-[var(--publico-text-heading)]">
               {fila.puntaje_final}
             </p>

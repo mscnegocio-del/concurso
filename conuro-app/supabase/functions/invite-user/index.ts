@@ -73,8 +73,8 @@ Deno.serve(async (req) => {
     const callerOrgId = callerData.organizacion_id
 
     // Permission check:
-    // - super_admin can invite admin or administrador to any org
-    // - admin can invite administrador to their own org
+    // - super_admin can invite admin or coordinador to any org
+    // - admin can invite coordinador to their own org
     if (callerRole === 'admin' && (rol === 'admin' || organizacion_id !== callerOrgId)) {
       return new Response(JSON.stringify({ error: 'Sin permisos para esta acción' }), {
         status: 403,

@@ -672,7 +672,7 @@ type Criterio = {
   orden: number
   es_criterio_desempate: boolean
 }
-type Participante = { id: string; codigo: string; nombre_completo: string }
+type Participante = { id: string; codigo: string; nombre_completo: string; institucion?: string | null }
 type Jurado = { id: string; nombre_completo: string; orden: number }
 
 function SeccionCategorias({
@@ -1341,6 +1341,7 @@ function SeccionParticipantes({
   const [catId, setCatId] = useState<string>('')
   const [parts, setParts] = useState<Participante[]>([])
   const [nombre, setNombre] = useState('')
+  const [institucion, setInstitucion] = useState('')
   const [participanteDeleteId, setParticipanteDeleteId] = useState<string | null>(null)
   const [agregandoParticipante, setAgregandoParticipante] = useState(false)
   const [eliminandoParticipante, setEliminandoParticipante] = useState(false)
@@ -1365,7 +1366,7 @@ function SeccionParticipantes({
     if (!catId) return
     const { data } = await supabase
       .from('participantes')
-      .select('id, codigo, nombre_completo')
+      .select('id, codigo, nombre_completo, institucion')
       .eq('categoria_id', catId)
       .order('codigo')
     setParts((data ?? []) as Participante[])
@@ -1388,10 +1389,12 @@ function SeccionParticipantes({
       const { error } = await supabase.from('participantes').insert({
         categoria_id: catId,
         nombre_completo: nombre.trim(),
+        institucion: institucion.trim() || null,
         codigo,
       })
       if (!error) {
         setNombre('')
+        setInstitucion('')
         await loadParts()
         onChanged()
       }
@@ -1438,7 +1441,8 @@ function SeccionParticipantes({
         {parts.map((p) => (
           <li key={p.id} className="flex justify-between py-2 text-sm">
             <span>
-              <span className="font-mono text-slate-500">{p.codigo}</span> {p.nombre_completo}
+              <span className="font-mono text-slate-500">{p.codigo}</span> <span className="font-medium">{p.nombre_completo}</span>
+              {p.institucion && <span className="ml-2 text-xs text-slate-500">({p.institucion})</span>}
             </span>
             {editable && (
               <button type="button" className="text-red-600" onClick={() => setParticipanteDeleteId(p.id)}>
@@ -1449,22 +1453,31 @@ function SeccionParticipantes({
         ))}
       </ul>
       {editable && (
-        <form className="mt-4 flex flex-wrap gap-2" onSubmit={(e) => void agregar(e)}>
-          <input
-            value={nombre}
-            onChange={(e) => setNombre(e.target.value)}
-            placeholder="Nombre completo"
-            disabled={agregandoParticipante}
-            className="min-w-[200px] flex-1 rounded border px-3 py-2 disabled:opacity-50"
-          />
-          <button
-            type="submit"
-            disabled={agregandoParticipante}
-            className="inline-flex items-center justify-center gap-2 rounded bg-slate-800 px-3 py-2 text-sm text-white disabled:opacity-50"
-          >
-            {agregandoParticipante ? <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden /> : null}
-            {agregandoParticipante ? 'Añadiendo…' : 'Añadir'}
-          </button>
+        <form className="mt-4 space-y-3" onSubmit={(e) => void agregar(e)}>
+          <div className="flex flex-wrap gap-2">
+            <input
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              placeholder="Nombre completo"
+              disabled={agregandoParticipante}
+              className="min-w-[200px] flex-1 rounded border px-3 py-2 disabled:opacity-50"
+            />
+            <input
+              value={institucion}
+              onChange={(e) => setInstitucion(e.target.value)}
+              placeholder="Institución (opcional)"
+              disabled={agregandoParticipante}
+              className="min-w-[180px] flex-1 rounded border px-3 py-2 disabled:opacity-50"
+            />
+            <button
+              type="submit"
+              disabled={agregandoParticipante}
+              className="inline-flex items-center justify-center gap-2 rounded bg-slate-800 px-3 py-2 text-sm text-white disabled:opacity-50"
+            >
+              {agregandoParticipante ? <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden /> : null}
+              {agregandoParticipante ? 'Añadiendo…' : 'Añadir'}
+            </button>
+          </div>
         </form>
       )}
 

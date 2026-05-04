@@ -71,6 +71,7 @@ type RankFila = {
   participante_id: string
   codigo: string
   nombre_completo: string
+  institucion?: string | null
   puntaje_final: number
   promedio_por_criterio?: Record<string, number>
 }
@@ -828,21 +829,31 @@ export function CoordinacionSalaPanel({
               return (
                 <li
                   key={x.participante_id}
-                  className={cn('flex items-center gap-3 rounded-lg border px-4 py-3', medal.bg, medal.border)}
+                  className={cn('flex flex-col gap-1 rounded-lg border px-4 py-3', medal.bg, medal.border)}
                 >
-                  <span className={cn('size-7 shrink-0 rounded-full flex items-center justify-center text-xs font-bold', medal.badge)}>
-                    {i + 1}°
-                  </span>
-                  <span className="flex-1 min-w-0 font-medium text-foreground text-sm truncate">{x.nombre_completo}</span>
-                  <span className="font-bold text-foreground tabular-nums shrink-0">{x.puntaje_final}</span>
+                  <div className="flex items-center gap-3">
+                    <span className={cn('size-7 shrink-0 rounded-full flex items-center justify-center text-xs font-bold', medal.badge)}>
+                      {i + 1}°
+                    </span>
+                    <span className="flex-1 min-w-0 font-medium text-foreground text-sm truncate">{x.nombre_completo}</span>
+                    <span className="font-bold text-foreground tabular-nums shrink-0">{x.puntaje_final}</span>
+                  </div>
+                  {x.institucion && (
+                    <p className="text-xs text-muted-foreground ml-10">{x.institucion}</p>
+                  )}
                 </li>
               )
             }
             return (
-              <li key={x.participante_id} className="flex items-center gap-3 px-4 py-2 text-sm border-b border-border/40 last:border-0">
-                <span className="size-6 shrink-0 flex items-center justify-center text-xs text-muted-foreground font-medium">{i + 1}°</span>
-                <span className="flex-1 min-w-0 text-foreground truncate">{x.nombre_completo}</span>
-                <span className="text-foreground tabular-nums shrink-0">{x.puntaje_final}</span>
+              <li key={x.participante_id} className="flex flex-col gap-0.5 px-4 py-2 text-sm border-b border-border/40 last:border-0">
+                <div className="flex items-center gap-3">
+                  <span className="size-6 shrink-0 flex items-center justify-center text-xs text-muted-foreground font-medium">{i + 1}°</span>
+                  <span className="flex-1 min-w-0 text-foreground truncate">{x.nombre_completo}</span>
+                  <span className="text-foreground tabular-nums shrink-0">{x.puntaje_final}</span>
+                </div>
+                {x.institucion && (
+                  <p className="text-xs text-muted-foreground ml-9">{x.institucion}</p>
+                )}
               </li>
             )
           })}
