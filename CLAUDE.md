@@ -612,6 +612,21 @@ Tras el rename del enum `rol_usuario` (`'administrador'` → `'coordinador'`), v
 > `_puntajes_finales_categoria` acepta solo `p_categoria_id` (1 uuid).  
 > `coordinador_progreso_evento` debe retornar **por categoría**, no por evento.
 
+### Correcciones UX — Panel en Vivo (04/05/2026)
+
+#### Fixes en `CoordinacionSalaPanel.tsx`
+
+| Problema | Causa | Fix |
+|----------|-------|-----|
+| Ranking mostraba 1°/2°/3° con puntaje 0 en estado `abierto` | El RPC carga participantes aunque no haya calificaciones; todos con 0 reciben medallas | Cuando `calificaciones_registradas === 0`, se muestra mensaje "Sin calificaciones aún" en lugar del ranking |
+| Botón "Registrar resultados" habilitado en estado `abierto` | `publicarDeshabilitado` solo bloqueaba estado `borrador` | Ahora también bloquea `abierto`; se muestra Alert explicando que hay que iniciar la calificación primero |
+| "Desempates detectados" con todos en 0.00 | `empatesDetectados` agrupaba todos los puntajes iguales, incluyendo 0 cuando nadie calificó | `empatesDetectados` retorna `[]` si `calificaciones_registradas === 0` |
+| Alerta "Calificaciones incompletas" visible en estado `abierto` | La alerta no filtraba por estado del evento | Solo se muestra cuando `evento.estado !== 'abierto'` |
+
+#### Regla de negocio aclarada
+> El botón de publicar/registrar resultados debe estar bloqueado mientras el evento sea `borrador` **o** `abierto`.  
+> Solo es accionable desde `calificando`, `cerrado` o `publicado`.
+
 ---
 
 ## Notas de desarrollo
