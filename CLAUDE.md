@@ -666,6 +666,16 @@ Tras el rename del enum `rol_usuario` (`'administrador'` → `'coordinador'`), v
   - Aparece en tabla desktop y en tarjetas mobile
 - **Archivo:** `src/pages/admin/AdminHistorialPage.tsx`
 
+### UX — Nombres completos en ranking sin truncar (04/05/2026)
+
+- **Bug:** En mobile, los nombres de participantes en el ranking (Top 3 y posiciones 4+) se cortaban con `...` al ser demasiado largos.
+- **Causa:** Clase `truncate` (`overflow: hidden; white-space: nowrap; text-overflow: ellipsis`) en los spans de nombre.
+- **Fix en `CoordinacionSalaPanel.tsx`:**
+  - Removido `truncate` de spans de nombre en Top 3 (medallas) y posiciones 4+
+  - `items-center` → `items-start` en el flex container para que el puntaje/badge quede alineado arriba cuando el nombre ocupa 2 líneas
+  - `mt-0.5` en badge/número para alineación visual con la primera línea del texto
+- **Alcance:** Aplica a **admin** (`/admin/coordinacion`) y **coordinador** (`/administrador`) — ambos usan el mismo componente
+
 ---
 
 ## Notas de desarrollo
